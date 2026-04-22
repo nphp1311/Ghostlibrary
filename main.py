@@ -882,11 +882,13 @@ class LanguageView(UserOnlyView):
 class ReadMenuView(UserOnlyView):
     def __init__(self, user):
         super().__init__(user, timeout=600)
-        self.books.label    = get_text(user.id, "btn_books")
-        self.facts.label    = get_text(user.id, "type_facts") # PHẢI CÓ DÒNG NÀY
-        self.rumors.label   = get_text(user.id, "btn_rumors")
-        self.my_works.label = get_text(user.id, "btn_my_writes")
-        self.exit_btn.label = get_text(user.id, "btn_exit")
+        # Nếu thiếu bất kỳ dòng gán label nào dưới đây mà nút có tồn tại, bot sẽ crash
+        self.books.label     = get_text(user.id, "btn_books")
+        self.facts.label     = get_text(user.id, "type_facts") 
+        self.rumors.label    = get_text(user.id, "btn_rumors")
+        self.my_works.label  = get_text(user.id, "btn_my_writes")
+        self.exit_btn.label  = get_text(user.id, "btn_exit")
+        
         self.add_item(HomeButton(self.user, row=3))
 
     @discord.ui.button(label="Sách", style=discord.ButtonStyle.primary, row=0)
