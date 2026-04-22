@@ -181,7 +181,7 @@ STRINGS = {
         # UI labels
         "btn_home": "🏠 Trang đầu",
         "btn_read": "📖 Đọc",
-        "btn_write": "✒️ Viểt",
+        "btn_write": "✒️ Viết",
         "btn_chat": "🗨️ Trò chuyện ",
         "btn_search": "🔍 Tra cứu",
         "btn_exit": "🚪 Thoát",
@@ -200,7 +200,7 @@ STRINGS = {
         "btn_voted_list": "Danh mục nội dung đã vote",
         "btn_all_works": "Toàn bộ tác phẩm",
         "btn_all_authors": "Toàn bộ tác giả",
-        "btn_write_new": "✒️ Viểt nội dung mới",
+        "btn_write_new": "✒️ Viết nội dung mới",
         "btn_edit_existing": "✒️ Sửa lại nội dung đã gửi",
         "btn_write_books": "📓 Sách (tối đa 4000 ký tự)",
         "btn_write_facts": "🍎 Fact (tối đa 4000 ký tự)",
@@ -1345,7 +1345,7 @@ class WriteMainView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=2))
 
     @discord.ui.button(
-        label="✒️ Viểt nội dung mới", style=discord.ButtonStyle.success, row=0
+        label="✒️ Viết nội dung mới", style=discord.ButtonStyle.success, row=0
     )
     async def new_content(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -3068,7 +3068,7 @@ class MainMenuView(UserOnlyView):
             view=ReadMenuView(self.user),
         )
 
-    @discord.ui.button(label="✒️ Viểt", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="✒️ Viết", style=discord.ButtonStyle.primary, row=0)
     async def write_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
