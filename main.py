@@ -693,14 +693,17 @@ class MainMenuView(UserOnlyView):
             self.add_item(admin_btn)
 
     @discord.ui.button(label="Đọc", style=discord.ButtonStyle.primary, row=0)
-    async def read_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+async def read_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+    # Thêm dòng print này để kiểm tra xem bot có chạy vào đây không
+    print(f"User {self.user.id} bấm nút Đọc") 
+    
+    try:
         await interaction.response.edit_message(
-            content=None,
             embed=librarian_embed(get_text(self.user.id, "read_ask")),
-            view=ReadMenuView(self.user),
+            view=ReadMenuView(self.user) # Đảm bảo class này đã được định nghĩa ở trên
         )
+    except Exception as e:
+        print(f"Lỗi khi mở ReadMenuView: {e}")
 
     @discord.ui.button(label="Viết", style=discord.ButtonStyle.primary, row=0)
     async def write_btn(
