@@ -885,28 +885,23 @@ class LanguageView(UserOnlyView):
 class ReadMenuView(UserOnlyView):
     def __init__(self, user):
         super().__init__(user, timeout=600)
-        # Nếu thiếu bất kỳ dòng gán label nào dưới đây mà nút có tồn tại, bot sẽ crash
+        # Kiểm tra kỹ: Tên biến (self.books) phải trùng với tên hàm (async def books)
         self.books.label     = get_text(user.id, "btn_books")
-        self.facts.label     = get_text(user.id, "type_facts") 
+        self.facts.label     = get_text(user.id, "type_facts") # <--- KIỂM TRA TÊN NÀY
         self.rumors.label    = get_text(user.id, "btn_rumors")
         self.my_works.label  = get_text(user.id, "btn_my_writes")
         self.exit_btn.label  = get_text(user.id, "btn_exit")
-        
         self.add_item(HomeButton(self.user, row=3))
 
     @discord.ui.button(label="Sách", style=discord.ButtonStyle.primary, row=0)
     async def books(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(
-            embed=librarian_embed(get_text(self.user.id, "book_action")),
-            view=ReadTypeOptionView(self.user, "books"),
-        )
+        await interaction.response.edit_message(view=ReadTypeOptionView(self.user, "books"))
 
     @discord.ui.button(label="Fact", style=discord.ButtonStyle.primary, row=0)
-    async def facts(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(
-            embed=librarian_embed(get_text(self.user.id, "fact_action")),
-            view=ReadTypeOptionView(self.user, "facts"),
-        )
+    async def facts(self, interaction: discord.Interaction, button: discord.ui.Button): # Tên hàm là facts
+        await interaction.response.edit_message(view=ReadTypeOptionView(self.user, "facts"))
+
+    # ... các nút khác giữ nguyên ...
 
     @discord.ui.button(label="Tin đồn", style=discord.ButtonStyle.primary, row=0)
     async def rumors(self, interaction: discord.Interaction, button: discord.ui.Button):
