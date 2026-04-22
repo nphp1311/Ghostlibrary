@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
 import json
 import random
@@ -114,7 +114,7 @@ STRINGS = {
         "home": "🏠 *Bạn đã quay trở lại sảnh chính của thư viện.*",
         "not_your_session": "Đây không phải phiên của bạn.",
         "continue_writing": "✍️ *Hãy tiếp tục viết nội dung của bạn.*",
-        "exited": "😌 *Bạn đã thoát. Nội dung nháp đã được xoá.*", "👻 *Thủ thư ma hiện lên từ bóng tối và khẽ nói...*\n\nTôi có thể giúp gì cho bạn?",
+        "exited": "😌 *Bạn đã thoát. Nội dung nháp đã được xoá.*",
         "read_ask": "📖 *Thủ thư ma hỏi:*\n\nBạn muốn đọc gì?",
         "write_ask": "✍️ *Tôi muốn...*",
         "write_new_ask": "🖊️ *Tôi sẽ viết...*",
@@ -279,7 +279,7 @@ STRINGS = {
         "home": "🏠 *You have returned to the main hall of the library.*",
         "not_your_session": "This is not your session.",
         "continue_writing": "✍️ *Please continue writing your content.*",
-        "exited": "😌 *You have exited. Draft has been cleared.*", "👻 *The Ghost Librarian materializes from the shadows...*\n\nHow can I help you?",
+        "exited": "😌 *You have exited. Draft has been cleared.*",
         "read_ask": "📖 *The Ghost Librarian asks:*\n\nWhat would you like to read?",
         "write_ask": "✍️ *I want to...*",
         "write_new_ask": "🖊️ *I will write...*",
@@ -662,7 +662,7 @@ class HomeButton(discord.ui.Button):
             return await interaction.response.send_message(
                 get_text(self.user.id, "not_your_session"), ephemeral=True
             )
-        
+
         view = MainMenuView(self.user)
         await interaction.response.edit_message(
             content=None,
@@ -988,7 +988,7 @@ class ReadTypeOptionView(UserOnlyView):
 
         item = random.choice(items)
         register_view(item, self.user.id)
-        
+
         pick_key = {
             "books": "random_pick_book", 
             "facts": "random_pick_fact", 
@@ -3173,7 +3173,7 @@ async def pickrole_forbiddenbooks(interaction: discord.Interaction, role: discor
         f"✅ {get_text(interaction.user.id, 'picked_role')} `{role.name}`",
         ephemeral=True,
     )
-    
+
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -3218,23 +3218,63 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    import traceback
+    traceback.print_exc()
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.send_message("⚠️ Đã xảy ra lỗi. Vui lòng thử lại.", ephemeral=True)
+        else:
+            await interaction.followup.send("⚠️ Đã xảy ra lỗi. Vui lòng thử lại.", ephemeral=True)
+    except Exception:
+        pass
+
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    import traceback
+    print(f"Error in event '{event}':")
+    traceback.print_exc()
+
+
+@tasks.loop(minutes=3)
+async def ping_self():
+    import urllib.request
+    domain = os.getenv("REPLIT_DEV_DOMAIN") or "localhost:8080"
+    url = f"https://{domain}" if not domain.startswith("http") else domain
+    try:
+        urllib.request.urlopen(url, timeout=10)
+    except Exception:
+        pass
+
+
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
     try:
         synced = await bot.tree.sync()
-        print(f"🔁 Synced {len(synced)} slash commands")
+        print(f"Slash commands synced: {len(synced)}")
     except Exception as e:
-        print(f"❌ Sync error: {e}")
+        print(f"Sync error: {e}")
 
-@bot.command()
-async def ping(ctx):
-    await ctx.send("pong 🏓")
+    await bot.change_presence(
+        status=discord.Status.online,
+        activity=discord.Activity(
+            type=discord.ActivityType.watching,
+            name="Thư Viện Cổ 📚"
+        )
+    )
+    print(f"Logged in as {bot.user}")
 
-import os
-TOKEN = os.getenv("TOKEN")
+    if not ping_self.is_running():
+        ping_self.start()
 
-if not TOKEN:
-    raise ValueError("❌ TOKEN not found")
 
-bot.run(TOKEN)
+from keep_alive import keep_alive
+keep_alive()
+
+token = os.getenv("TOKEN")
+if not token:
+    print("Vui lòng thêm TOKEN vào Secrets!")
+else:
+    bot.run(token, reconnect=True)
