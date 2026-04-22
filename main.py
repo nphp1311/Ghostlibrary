@@ -882,14 +882,11 @@ class LanguageView(UserOnlyView):
 class ReadMenuView(UserOnlyView):
     def __init__(self, user):
         super().__init__(user, timeout=600)
-        # Gán nhãn từ file ngôn ngữ
-        self.books.label     = get_text(user.id, "btn_books")
-        self.facts.label     = get_text(user.id, "type_facts") # Đảm bảo dòng này có
-        self.rumors.label    = get_text(user.id, "btn_rumors")
-        self.my_works.label  = get_text(user.id, "btn_my_writes")
-        self.exit_btn.label  = get_text(user.id, "btn_exit")
-        
-        # Thêm nút trang đầu
+        self.books.label    = get_text(user.id, "btn_books")
+        self.facts.label    = get_text(user.id, "type_facts") # PHẢI CÓ DÒNG NÀY
+        self.rumors.label   = get_text(user.id, "btn_rumors")
+        self.my_works.label = get_text(user.id, "btn_my_writes")
+        self.exit_btn.label = get_text(user.id, "btn_exit")
         self.add_item(HomeButton(self.user, row=3))
 
     @discord.ui.button(label="Sách", style=discord.ButtonStyle.primary, row=0)
@@ -929,20 +926,17 @@ class ReadMenuView(UserOnlyView):
         )
 
 
-class ReadTypeOptionView(UserOnlyView):
-    def __init__(self, user, data_type):
+class ReadMenuView(UserOnlyView):
+    def __init__(self, user):
         super().__init__(user, timeout=600)
-        self.data_type = data_type
-        # ĐẢM BẢO lấy gdata từ guild hiện tại
-        self.gdata = get_guild_data(user.guild.id) if hasattr(user, 'guild') else {}
+        # Gán nhãn cho TẤT CẢ các nút đã định nghĩa bên dưới
+        self.books.label     = get_text(user.id, "btn_books")
+        self.facts.label     = get_text(user.id, "type_facts") # KIỂM TRA KHÓA NÀY TRONG STRINGS
+        self.rumors.label    = get_text(user.id, "btn_rumors")
+        self.my_works.label  = get_text(user.id, "btn_my_writes")
+        self.exit_btn.label  = get_text(user.id, "btn_exit")
         
-        # Cập nhật label từ file ngôn ngữ
-        self.catalog.label     = get_text(user.id, "btn_catalog")
-        self.random_pick.label = get_text(user.id, "btn_random")
-        self.exit_btn.label    = get_text(user.id, "btn_exit")
-        
-        # Thêm nút Trang đầu
-        self.add_item(HomeButton(self.user, row=1))
+        self.add_item(HomeButton(self.user, row=3))
 
     @discord.ui.button(
         label="Cho tôi xem danh mục hiện có", style=discord.ButtonStyle.primary, row=0
