@@ -926,17 +926,14 @@ class ReadMenuView(UserOnlyView):
         )
 
 
-class ReadMenuView(UserOnlyView):
-    def __init__(self, user):
+class ReadTypeOptionView(UserOnlyView):
+    def __init__(self, user, data_type):
         super().__init__(user, timeout=600)
-        # Gán nhãn cho TẤT CẢ các nút đã định nghĩa bên dưới
-        self.books.label     = get_text(user.id, "btn_books")
-        self.facts.label     = get_text(user.id, "type_facts") # KIỂM TRA KHÓA NÀY TRONG STRINGS
-        self.rumors.label    = get_text(user.id, "btn_rumors")
-        self.my_works.label  = get_text(user.id, "btn_my_writes")
-        self.exit_btn.label  = get_text(user.id, "btn_exit")
-        
-        self.add_item(HomeButton(self.user, row=3))
+        self.data_type = data_type
+        self.catalog.label    = get_text(user.id, "btn_catalog")
+        self.random_pick.label = get_text(user.id, "btn_random")
+        self.exit_btn.label   = get_text(user.id, "btn_exit")
+        self.add_item(HomeButton(self.user, row=2))
 
     @discord.ui.button(
         label="Cho tôi xem danh mục hiện có", style=discord.ButtonStyle.primary, row=0
