@@ -670,87 +670,6 @@ class HomeButton(discord.ui.Button):
             view=view
         )
 
-
-class MainMenuView(UserOnlyView):
-    def __init__(self, user):
-        super().__init__(user, timeout=600)
-        self.read_btn.label   = get_text(user.id, "btn_read")
-        self.write_btn.label  = get_text(user.id, "btn_write")
-        self.chat_btn.label   = get_text(user.id, "btn_chat")
-        self.search_btn.label = get_text(user.id, "btn_search")
-        self.exit_btn.label   = get_text(user.id, "btn_exit")
-        self.lang_btn.label   = get_text(user.id, "btn_lang")
-        if isinstance(user, discord.Member) and is_admin_member(user):
-            admin_btn = discord.ui.Button(
-                label="⚙️ Admin", style=discord.ButtonStyle.secondary, row=1
-            )
-            async def admin_callback(interaction: discord.Interaction):
-                _ap = AdminPanelView(self.user)
-                await interaction.response.edit_message(
-                    content=None, embeds=[_ap.panel_embed()], view=_ap
-                )
-            admin_btn.callback = admin_callback
-            self.add_item(admin_btn)
-
-    @discord.ui.button(label="Đọc", style=discord.ButtonStyle.primary, row=0)
-    async def read_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(
-            content=None,
-            embed=librarian_embed(get_text(self.user.id, "read_ask")),
-            view=ReadMenuView(self.user),
-        )
-
-    @discord.ui.button(label="Viết", style=discord.ButtonStyle.primary, row=0)
-    async def write_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(
-            content=None,
-            embed=librarian_embed(get_text(self.user.id, "write_ask")),
-            view=WriteMainView(self.user),
-        )
-
-    @discord.ui.button(label="Trò chuyện", style=discord.ButtonStyle.primary, row=0)
-    async def chat_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(
-            content=None,
-            embed=librarian_embed(get_text(self.user.id, "chat_ask")),
-            view=ChatMenuView(self.user),
-        )
-
-    @discord.ui.button(label="Tra cứu", style=discord.ButtonStyle.success, row=0)
-    async def search_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(
-            content=None,
-            embed=librarian_embed(get_text(self.user.id, "search_ask")),
-            view=SearchMenuView(self.user),
-        )
-
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
-    async def exit_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(content=None, embeds=[librarian_embed(self.farewell_text)], view=None)
-
-    @discord.ui.button(
-        label="Chuyển ngôn ngữ", style=discord.ButtonStyle.secondary, row=1
-    )
-    async def lang_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(
-            content=get_text(self.user.id, "choose_language"),
-            view=LanguageView(self.user),
-            embed=None,
-        )
-
-
 class AdminPanelView(UserOnlyView):
     def __init__(self, user):
         super().__init__(user, timeout=300)
@@ -3117,6 +3036,85 @@ class LoreMenuView(UserOnlyView):
         )
         return embed
 
+
+class MainMenuView(UserOnlyView):
+    def __init__(self, user):
+        super().__init__(user, timeout=600)
+        self.read_btn.label   = get_text(user.id, "btn_read")
+        self.write_btn.label  = get_text(user.id, "btn_write")
+        self.chat_btn.label   = get_text(user.id, "btn_chat")
+        self.search_btn.label = get_text(user.id, "btn_search")
+        self.exit_btn.label   = get_text(user.id, "btn_exit")
+        self.lang_btn.label   = get_text(user.id, "btn_lang")
+        if isinstance(user, discord.Member) and is_admin_member(user):
+            admin_btn = discord.ui.Button(
+                label="⚙️ Admin", style=discord.ButtonStyle.secondary, row=1
+            )
+            async def admin_callback(interaction: discord.Interaction):
+                _ap = AdminPanelView(self.user)
+                await interaction.response.edit_message(
+                    content=None, embeds=[_ap.panel_embed()], view=_ap
+                )
+            admin_btn.callback = admin_callback
+            self.add_item(admin_btn)
+
+    @discord.ui.button(label="Đọc", style=discord.ButtonStyle.primary, row=0)
+    async def read_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(
+            content=None,
+            embed=librarian_embed(get_text(self.user.id, "read_ask")),
+            view=ReadMenuView(self.user),
+        )
+
+    @discord.ui.button(label="Viết", style=discord.ButtonStyle.primary, row=0)
+    async def write_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(
+            content=None,
+            embed=librarian_embed(get_text(self.user.id, "write_ask")),
+            view=WriteMainView(self.user),
+        )
+
+    @discord.ui.button(label="Trò chuyện", style=discord.ButtonStyle.primary, row=0)
+    async def chat_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(
+            content=None,
+            embed=librarian_embed(get_text(self.user.id, "chat_ask")),
+            view=ChatMenuView(self.user),
+        )
+
+    @discord.ui.button(label="Tra cứu", style=discord.ButtonStyle.success, row=0)
+    async def search_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(
+            content=None,
+            embed=librarian_embed(get_text(self.user.id, "search_ask")),
+            view=SearchMenuView(self.user),
+        )
+
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
+    async def exit_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(content=None, embeds=[librarian_embed(self.farewell_text)], view=None)
+
+    @discord.ui.button(
+        label="Chuyển ngôn ngữ", style=discord.ButtonStyle.secondary, row=1
+    )
+    async def lang_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(
+            content=get_text(self.user.id, "choose_language"),
+            view=LanguageView(self.user),
+            embed=None,
+        )
 
 @bot.tree.command(name="ghostlibrary", description="Mở giao diện thư viện ma")
 async def ghostlibrary(interaction: discord.Interaction):
