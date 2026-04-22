@@ -674,23 +674,26 @@ class HomeButton(discord.ui.Button):
 class MainMenuView(UserOnlyView):
     def __init__(self, user):
         super().__init__(user, timeout=600)
-        # Gán nhãn cho các nút từ file ngôn ngữ
+        
+        # 1. Gán nhãn an toàn
+        # Nếu get_text bị lỗi, bot sẽ dùng nhãn mặc định thay vì crash
         try:
-            self.read_btn.label   = get_text(user.id, "btn_read")
-            self.write_btn.label  = get_text(user.id, "btn_write")
-            self.chat_btn.label   = get_text(user.id, "btn_chat")
-            self.search_btn.label = get_text(user.id, "btn_search")
-            self.exit_btn.label   = get_text(user.id, "btn_exit")
-            self.lang_btn.label   = get_text(user.id, "btn_lang")
+            self.read_btn.label   = get_text(user.id, "btn_read") or "Đọc"
+            self.write_btn.label  = get_text(user.id, "btn_write") or "Viết"
+            self.chat_btn.label   = get_text(user.id, "btn_chat") or "Trò chuyện"
+            self.search_btn.label = get_text(user.id, "btn_search") or "Tra cứu"
+            self.exit_btn.label   = get_text(user.id, "btn_exit") or "Thoát"
+            self.lang_btn.label   = get_text(user.id, "btn_lang") or "Ngôn ngữ"
         except Exception as e:
-            print(f"⚠️ Lỗi gán label: {e}")
+            print(f"⚠️ Cảnh báo gán nhãn: {e}")
 
-        # Thêm nút Admin nếu là admin
+        # 2. Thêm nút Admin (Chỉ thêm nếu là Admin)
         if isinstance(user, discord.Member) and is_admin_member(user):
             admin_btn = discord.ui.Button(
-                label="⚙️ Admin", style=discord.ButtonStyle.secondary, row=1
+                label="⚙️ Admin", 
+                style=discord.ButtonStyle.secondary, 
+                row=1
             )
-            # Dùng lambda hoặc callback riêng biệt bên ngoài để ổn định hơn
             async def admin_callback(interaction: discord.Interaction):
                 _ap = AdminPanelView(self.user)
                 await interaction.response.edit_message(
@@ -699,25 +702,24 @@ class MainMenuView(UserOnlyView):
             admin_btn.callback = admin_callback
             self.add_item(admin_btn)
 
+    # ĐẢM BẢO các hàm dưới đây thụt lề đúng (thẳng hàng với hàm __init__)
     @discord.ui.button(label="Đọc", style=discord.ButtonStyle.primary, row=0)
     async def read_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        print(f"User {self.user.id} bấm nút Đọc") 
         try:
-            # LƯU Ý: ReadMenuView phải được định nghĩa TRƯỚC class này trong file
             await interaction.response.edit_message(
                 content=None,
                 embed=librarian_embed(get_text(self.user.id, "read_ask")),
                 view=ReadMenuView(self.user)
             )
         except Exception as e:
-            print(f"❌ Lỗi khi mở ReadMenuView: {e}")
+            print(f"❌ Lỗi ReadMenuView: {e}")
 
     @discord.ui.button(label="Viết", style=discord.ButtonStyle.primary, row=0)
     async def write_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             content=None,
             embed=librarian_embed(get_text(self.user.id, "write_ask")),
-            view=WriteMainView(self.user),
+            view=WriteMainView(self.user)
         )
 
     @discord.ui.button(label="Trò chuyện", style=discord.ButtonStyle.primary, row=0)
@@ -725,7 +727,7 @@ class MainMenuView(UserOnlyView):
         await interaction.response.edit_message(
             content=None,
             embed=librarian_embed(get_text(self.user.id, "chat_ask")),
-            view=ChatMenuView(self.user),
+            view=ChatMenuView(self.user)
         )
 
     @discord.ui.button(label="Tra cứu", style=discord.ButtonStyle.success, row=0)
@@ -733,7 +735,7 @@ class MainMenuView(UserOnlyView):
         await interaction.response.edit_message(
             content=None,
             embed=librarian_embed(get_text(self.user.id, "search_ask")),
-            view=SearchMenuView(self.user),
+            view=SearchMenuView(self.user)
         )
 
     @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
@@ -744,13 +746,14 @@ class MainMenuView(UserOnlyView):
             view=None
         )
 
-    @discord.ui.button(label="Chuyển ngôn ngữ", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(label="Ngôn ngữ", style=discord.ButtonStyle.secondary, row=1)
     async def lang_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             content=get_text(self.user.id, "choose_language"),
             embed=None,
-            view=LanguageView(self.user),
+            view=LanguageView(self.user)
         )
+        
 class AdminPanelView(UserOnlyView):
     def __init__(self, user):
         super().__init__(user, timeout=300)
