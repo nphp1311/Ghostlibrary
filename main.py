@@ -615,35 +615,30 @@ class UserOnlyView(discord.ui.View):
 
 
 class ExitConfirmView(UserOnlyView):
-    def __init__(self, user, return_view, go_home=False):
+    def __init__(self, user, parent_view):
         super().__init__(user, timeout=60)
-        self.return_view = return_view
-        self.go_home = go_home
-
-        self.confirm_btn.label = get_text(user.id, "leave")
-        self.stay_btn.label = get_text(user.id, "stay")
-
-    @discord.ui.button(label="Vâng", style=discord.ButtonStyle.danger)
-    async def confirm_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        drafts.pop(self.user.id, None)
-        draft_message_map.pop(self.user.id, None)
-        if self.go_home:
-            await interaction.response.edit_message(
-                content=None,
-                embeds=[librarian_embed(self.welcome_text)],
-                view=MainMenuView(self.user),
-            )
-        else:
-            await interaction.response.edit_message(content=None, embeds=[librarian_embed(self.farewell_text)], view=None)
+        self.parent_view = parent_view
 
     @discord.ui.button(label="Ở lại viết tiếp", style=discord.ButtonStyle.success)
-    async def stay_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+    async def stay_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        # ❗ FIX QUAN TRỌNG: luôn phải response
         await interaction.response.edit_message(
-            content="Mời bạn tiếp tục:", view=self.return_view, embed=None
+            content=None,
+            embed=librarian_embed(get_text(self.user.id, "continue_writing")),
+            view=self.parent_view
+        )
+
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger)
+    async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        drafts.pop(self.user.id, None)
+        draft_message_map.pop(self.user.id, None)
+
+        await interaction.response.edit_message(
+            content=None,
+            embed=librarian_embed(get_text(self.user.id, "exited")),
+            view=MainMenuView(self.user)
         )
 
 
