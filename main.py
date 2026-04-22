@@ -499,7 +499,7 @@ def user_can_access_forbidden(member: discord.Member):
 
 def librarian_embed(text, color=0x4b0082):
     embed = discord.Embed(description=text, color=color)
-    embed.set_author(name="📜 Thư Viện Cổ 📜")
+    embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
     return embed
 
 
@@ -843,7 +843,7 @@ class AdminPanelView(UserOnlyView):
     def panel_embed(self):
         role_id = self.gdata["config"].get("forbidden_role")
         embed = discord.Embed(title="⚙️ Cài đặt Admin — Cấm thư", color=0x4b0082)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         if role_id:
             embed.add_field(
                 name="🔐 Role hiện tại",
@@ -1296,7 +1296,7 @@ class CatalogView(UserOnlyView):
             title=f"{type_label}{category_text} • Trang {self.page + 1}/{self.total_pages}",
             color=0x4b0082,
         )
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         if not self.current_items:
             embed.description = "*(Không có nội dung nào trong danh mục này.)*"
         else:
@@ -2224,7 +2224,7 @@ class AuthorCatalogView(UserOnlyView):
             title=f"🖊️ Danh mục tác giả • Trang {self.page + 1}/{self.total_pages}",
             color=0x4b0082,
         )
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         if not self.current_authors:
             embed.description = "*(Chưa có tác giả nào trong thư viện.)*"
         else:
@@ -2352,7 +2352,7 @@ class AuthorWorksView(UserOnlyView):
             title=f"✍️ {self.author_name} — {total} tác phẩm • Trang {self.page + 1}/{self.total_pages}",
             color=0x4b0082,
         )
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         if not self.current_works:
             embed.description = "*(Tác giả chưa có tác phẩm nào.)*"
         else:
@@ -2467,7 +2467,7 @@ class DeleteAllConfirmView(UserOnlyView):
             gd["rumors"] = []
             save_json(DATA_FILE, library_data)
             embed = discord.Embed(title="☢️ Đã xoá toàn bộ", description="Kho dữ liệu thư viện đã được dọn sạch.", color=0x4b0082)
-            embed.set_author(name="📜 Thư Viện Cổ 📜")
+            embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
             await interaction.response.edit_message(embeds=[embed], view=AdminReturnView(self.user))
 
         async def cancel_cb(interaction: discord.Interaction):
@@ -2482,7 +2482,7 @@ class DeleteAllConfirmView(UserOnlyView):
     def confirm_embed(self):
         total = sum(len(self.gdata[dt]) for dt in ["books", "facts", "rumors"])
         embed = discord.Embed(title="⚠️ Xác nhận xoá toàn bộ kho dữ liệu", color=0xFF0000)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         embed.add_field(name="📊 Tổng số tác phẩm sẽ bị xoá", value=str(total), inline=False)
         embed.set_footer(text="Hành động này không thể hoàn tác. Bạn chắc chắn chứ?")
         return embed
@@ -2505,7 +2505,7 @@ class DeleteConfirmItemView(UserOnlyView):
                 description=f'Tác phẩm **"{self.item["title"]}"** đã được xoá khỏi kho dữ liệu.',
                 color=0x4b0082,
             )
-            embed.set_author(name="📜 Thư Viện Cổ 📜")
+            embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
             await interaction.response.edit_message(embeds=[embed], view=AdminReturnView(self.user))
 
         async def cancel_cb(interaction: discord.Interaction):
@@ -2520,7 +2520,7 @@ class DeleteConfirmItemView(UserOnlyView):
     def confirm_embed(self):
         type_labels = {"books": "Sách", "facts": "Fact", "rumors": "Tin đồn"}
         embed = discord.Embed(title="⚠️ Xác nhận xoá tác phẩm", color=0xFF6B00)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         embed.add_field(name="📖 Tác phẩm", value=self.item["title"], inline=False)
         embed.add_field(name="✍️ Tác giả",  value=self.item.get("author", "?"), inline=True)
         embed.add_field(name="📁 Thể loại", value=type_labels.get(self.dt, self.dt), inline=True)
@@ -2568,7 +2568,7 @@ class DeleteSelectItemView(UserOnlyView):
         type_labels = {"books": "Sách", "facts": "Fact", "rumors": "Tin đồn"}
         total = len(self.gdata[self.dt])
         embed = discord.Embed(title=f"🗑️ Xoá {type_labels[self.dt]}", color=0x4b0082)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         if not total:
             embed.description = f"*(Không có {type_labels[self.dt]} nào trong thư viện.)*"
         elif total > 25:
@@ -2600,7 +2600,7 @@ class DeleteSelectTypeView(UserOnlyView):
 
     def panel_embed(self):
         embed = discord.Embed(title="🗑️ Xoá tác phẩm — Chọn thể loại", color=0x4b0082)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         embed.description = "Chọn thể loại tác phẩm muốn xoá:"
         return embed
 
@@ -2629,7 +2629,7 @@ class DeleteByAuthorConfirmView(UserOnlyView):
                 description=f'Đã xoá **{len(removed_items)} tác phẩm** của bút danh **"{self.author_name}"**.',
                 color=0x4b0082,
             )
-            embed.set_author(name="📜 Thư Viện Cổ 📜")
+            embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
             await interaction.response.edit_message(embeds=[embed], view=AdminReturnView(self.user))
 
         async def cancel_cb(interaction: discord.Interaction):
@@ -2643,7 +2643,7 @@ class DeleteByAuthorConfirmView(UserOnlyView):
 
     def confirm_embed(self):
         embed = discord.Embed(title="⚠️ Xác nhận xoá theo bút danh", color=0xFF6B00)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         embed.add_field(name="✍️ Bút danh", value=self.author_name, inline=False)
         embed.add_field(name="📊 Số tác phẩm sẽ bị xoá", value=str(self.count), inline=False)
         embed.set_footer(text="Bạn sắp xoá toàn bộ tác phẩm của bút danh này. Bạn chắc chắn chứ?")
@@ -2687,7 +2687,7 @@ class DeleteByAuthorView(UserOnlyView):
 
     def panel_embed(self):
         embed = discord.Embed(title="🖊️ Xoá theo bút danh", color=0x4b0082)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         embed.description = "Chọn bút danh từ dropdown. **Toàn bộ tác phẩm** dưới bút danh đó sẽ bị xoá."
         return embed
 
@@ -2722,7 +2722,7 @@ class DeleteByUserConfirmView(UserOnlyView):
                 description=f'Đã xoá **{len(removed_items)} tác phẩm** của <@{target_id}> khỏi kho dữ liệu.',
                 color=0x4b0082,
             )
-            embed.set_author(name="📜 Thư Viện Cổ 📜")
+            embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
             await interaction.response.edit_message(embeds=[embed], view=AdminReturnView(self.user))
 
         async def cancel_cb(interaction: discord.Interaction):
@@ -2736,7 +2736,7 @@ class DeleteByUserConfirmView(UserOnlyView):
 
     def confirm_embed(self):
         embed = discord.Embed(title="⚠️ Xác nhận xoá theo người dùng", color=0xFF6B00)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         embed.add_field(name="👤 Người dùng", value=f"<@{self.target_user.id}>", inline=False)
         embed.add_field(name="📊 Số tác phẩm sẽ bị xoá", value=str(self.count), inline=False)
         embed.set_footer(text="Bạn sắp xoá toàn bộ tác phẩm của người dùng này. Bạn chắc chắn chứ?")
@@ -2766,7 +2766,7 @@ class DeleteByUserView(UserOnlyView):
 
     def panel_embed(self):
         embed = discord.Embed(title="👤 Xoá theo người dùng", color=0x4b0082)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         embed.description = "Chọn người dùng Discord từ dropdown. **Toàn bộ tác phẩm** do người đó đăng sẽ bị xoá."
         return embed
 
@@ -2806,7 +2806,7 @@ class DeleteMenuView(UserOnlyView):
         facts  = len(self.gdata["facts"])
         rumors = len(self.gdata["rumors"])
         embed = discord.Embed(title="🗑️ Quản lý xoá nội dung", color=0x4b0082)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         embed.add_field(
             name="📊 Kho dữ liệu hiện tại",
             value=f"📘 Sách: {books}\n📗 Fact: {facts}\n📕 Tin đồn: {rumors}",
@@ -2965,7 +2965,7 @@ class LoreListView(UserOnlyView):
         entries = self.gdata["lore"][cat]
         titles  = {"library": "📜 Lore thư viện", "librarian": "👻 Lore thủ thư"}
         embed   = discord.Embed(title=titles.get(cat, cat), color=0x4b0082)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         if not entries:
             embed.description = get_text(uid, "lore_empty")
         else:
@@ -3087,7 +3087,7 @@ class GreetingListView(UserOnlyView):
         active = bucket.get("active")
         titles = {"welcome": "👋 Lời chào mở đầu", "farewell": "🌕 Lời tạm biệt"}
         embed  = discord.Embed(title=titles.get(cat, cat), color=0x4b0082)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         if not msgs:
             embed.description = get_text(uid, "lore_empty")
         else:
@@ -3135,7 +3135,7 @@ class LoreMenuView(UserOnlyView):
     def menu_embed(self):
         uid = self.user.id
         embed = discord.Embed(title=get_text(uid, "lore_menu_title"), color=0x4b0082)
-        embed.set_author(name="📜 Thư Viện Cổ 📜")
+        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         embed.description = (
             "📜 **Lore thư viện** — Câu trả lời khi user hỏi về thư viện (random 1 câu)\n"
             "👻 **Lore thủ thư** — Câu trả lời khi user hỏi về nhân vật (random 1 câu)\n"
