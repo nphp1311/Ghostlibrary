@@ -1922,7 +1922,7 @@ class SearchMenuView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=3))
 
     @discord.ui.button(
-        label="Danh mục nội dung đã đọc", style=discord.ButtonStyle.secondary, row=0
+        label="Danh mục nội dung đã đọc", style=discord.ButtonStyle.primary, row=0
     )
     async def read_history(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -1934,7 +1934,7 @@ class SearchMenuView(UserOnlyView):
         )
 
     @discord.ui.button(
-        label="Danh mục nội dung đã vote", style=discord.ButtonStyle.secondary, row=0
+        label="Danh mục nội dung đã vote", style=discord.ButtonStyle.primary, row=0
     )
     async def vote_history(
         self, interaction: discord.Interaction, button: discord.ui.Button
