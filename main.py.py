@@ -3215,24 +3215,21 @@ async def on_message(message):
 
 @bot.event
 async def on_ready():
+    print(f"✅ Logged in as {bot.user}")
     try:
         synced = await bot.tree.sync()
-        print(f"Slash commands synced: {len(synced)}")
+        print(f"🔁 Synced {len(synced)} slash commands")
     except Exception as e:
-        print(f"Sync error: {e}")
+        print(f"❌ Sync error: {e}")
 
-    await bot.change_presence(
-        status=discord.Status.online,
-        activity=discord.Activity(
-            type=discord.ActivityType.watching,
-            name="Thư Viện Cổ 📚"
-        )
-    )
-    print(f"Logged in as {bot.user}")
+@bot.command()
+async def ping(ctx):
+    await ctx.send("pong 🏓")
 
+import os
+TOKEN = os.getenv("TOKEN")
 
-token = os.getenv("TOKEN")
-if token:
-    bot.run(token)
-else:
-    print("Vui lòng thêm TOKEN vào Secrets!")
+if not TOKEN:
+    raise ValueError("❌ TOKEN not found")
+
+bot.run(TOKEN)
