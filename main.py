@@ -645,7 +645,7 @@ class ExitConfirmView(UserOnlyView):
 class HomeButton(discord.ui.Button):
     def __init__(self, user, row=None):
         super().__init__(
-            label="🏠Trang đầu",
+            label="🏠 Trang đầu",  # 👈 sửa ở đây
             style=discord.ButtonStyle.secondary,
             row=row
         )
