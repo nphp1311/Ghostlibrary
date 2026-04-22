@@ -3179,11 +3179,6 @@ async def pickrole_forbiddenbooks(interaction: discord.Interaction, role: discor
         f"✅ {get_text(interaction.user.id, 'picked_role')} `{role.name}`",
         ephemeral=True,
     )
-
-@bot.event
-async def on_command_error(ctx, error):
-    print(f"ERROR: {error}")
-    await ctx.send("⚠️ Error occurred. Check logs.")
     
 @bot.event
 async def on_message(message):
