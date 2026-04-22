@@ -1493,7 +1493,7 @@ class WriteTypeSelectView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=2))
 
     @discord.ui.button(
-        label="Sách (tối đa 5000 ký tự)", style=discord.ButtonStyle.primary, row=0
+        label="Sách (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
     )
     async def books(self, interaction: discord.Interaction, button: discord.ui.Button):
         drafts[self.user.id] = {
@@ -1513,7 +1513,7 @@ class WriteTypeSelectView(UserOnlyView):
         )
 
     @discord.ui.button(
-        label="Fact (tối đa 300 ký tự)", style=discord.ButtonStyle.primary, row=0
+        label="Fact (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
     )
     async def facts(self, interaction: discord.Interaction, button: discord.ui.Button):
         drafts[self.user.id] = {
@@ -1533,7 +1533,7 @@ class WriteTypeSelectView(UserOnlyView):
         )
 
     @discord.ui.button(
-        label="Tin đồn (tối đa 300 ký tự)", style=discord.ButtonStyle.primary, row=0
+        label="Tin đồn (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
     )
     async def rumors(self, interaction: discord.Interaction, button: discord.ui.Button):
         drafts[self.user.id] = {
