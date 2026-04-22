@@ -1793,14 +1793,14 @@ class ChatMenuView(UserOnlyView):
         self.exit_btn.label   = get_text(user.id, "btn_exit")
         self.add_item(HomeButton(self.user, row=3))
 
-    @discord.ui.button(label="Thư viện này", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Thư viện này", style=discord.ButtonStyle.secondary, row=0)
     async def lib_info(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         await interaction.response.edit_message(
             content=None,
             embed=librarian_embed(get_lore_text(self.gdata, "library")),
-            view=ChatBackView(self.user),
+            view=ChatBackView(self.user), 
         )
 
     @discord.ui.button(label="Về bạn", style=discord.ButtonStyle.secondary, row=0)
