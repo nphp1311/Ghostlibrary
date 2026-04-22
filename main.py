@@ -111,6 +111,8 @@ ensure_data()
 
 STRINGS = {
     "vi": {
+        "home": "🏠 *Bạn đã quay trở lại sảnh chính của thư viện.*",
+        # ... các dòng khác
         "welcome": "👻 *Thủ thư ma hiện lên từ bóng tối và khẽ nói...*\n\nTôi có thể giúp gì cho bạn?",
         "read_ask": "📖 *Thủ thư ma hỏi:*\n\nBạn muốn đọc gì?",
         "write_ask": "✍️ *Tôi muốn...*",
@@ -273,6 +275,8 @@ STRINGS = {
         "new_image": "Ảnh minh họa (có thể bỏ trống)",
     },
     "en": {
+        "home": "🏠 *You have returned to the main hall of the library.*",
+        # ... các dòng khác
         "welcome": "👻 *The Ghost Librarian materializes from the shadows...*\n\nHow can I help you?",
         "read_ask": "📖 *The Ghost Librarian asks:*\n\nWhat would you like to read?",
         "write_ask": "✍️ *I want to...*",
@@ -645,53 +649,26 @@ class ExitConfirmView(UserOnlyView):
 class HomeButton(discord.ui.Button):
     def __init__(self, user, row=None):
         super().__init__(
-            label="🏠 Trang đầu",  # 👈 sửa ở đây
-            style=discord.ButtonStyle.secondary,
+            label="🏠 Trang đầu", 
+            style=discord.ButtonStyle.secondary, 
             row=row
         )
         self.user = user
 
     async def callback(self, interaction: discord.Interaction):
-
-        # ❗ chống người khác bấm
         if interaction.user.id != self.user.id:
-            if not interaction.response.is_done():
-                await interaction.response.send_message(
-                    "Bạn không thể dùng nút này.", ephemeral=True
-                )
-            else:
-                await interaction.followup.send(
-                    "Bạn không thể dùng nút này.", ephemeral=True
-                )
-            return
-
-        embed = librarian_embed(get_text(self.user.id, "home"))
+            return await interaction.response.send_message(
+                get_text(self.user.id, "not_your_session"), ephemeral=True
+            )
+        
+        # Quay lại MainMenuView
+        from __main__ import MainMenuView # Tránh lỗi circular import nếu cần
         view = MainMenuView(self.user)
-
-        # 🔥 FIX QUAN TRỌNG: handle cả 2 trạng thái interaction
-        try:
-            if interaction.response.is_done():
-                await interaction.edit_original_response(
-                    content=None,
-                    embed=embed,
-                    view=view
-                )
-            else:
-                await interaction.response.edit_message(
-                    content=None,
-                    embed=embed,
-                    view=view
-                )
-        except Exception:
-            # 🔒 fallback cuối cùng (tránh fail cứng)
-            try:
-                await interaction.followup.send(
-                    embed=embed,
-                    view=view,
-                    ephemeral=True
-                )
-            except Exception:
-                pass
+        await interaction.response.edit_message(
+            content=None,
+            embed=librarian_embed(get_text(self.user.id, "home")),
+            view=view
+        )
 
 
 class MainMenuView(UserOnlyView):
@@ -960,27 +937,30 @@ class ReadTypeOptionView(UserOnlyView):
     def __init__(self, user, data_type):
         super().__init__(user, timeout=600)
         self.data_type = data_type
+        # ĐẢM BẢO lấy gdata từ guild hiện tại
+        self.gdata = get_guild_data(user.guild.id) if hasattr(user, 'guild') else {}
+        
+        # Cập nhật label từ file ngôn ngữ
         self.catalog.label     = get_text(user.id, "btn_catalog")
         self.random_pick.label = get_text(user.id, "btn_random")
         self.exit_btn.label    = get_text(user.id, "btn_exit")
-        self.add_item(HomeButton(self.user, row=2))
+        
+        # Thêm nút Trang đầu
+        self.add_item(HomeButton(self.user, row=1))
 
     @discord.ui.button(
         label="Cho tôi xem danh mục hiện có", style=discord.ButtonStyle.primary, row=0
     )
-    async def catalog(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+    async def catalog(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.data_type == "books":
             await interaction.response.edit_message(
-                content=None,
                 embed=librarian_embed(get_text(self.user.id, "category_ask")),
                 view=BookCategoryPickView(self.user),
             )
         else:
+            # CatalogView cho facts/rumors
             _cv = CatalogView(self.user, self.data_type)
             await interaction.response.edit_message(
-                content=None,
                 embeds=[_cv.page_embed()],
                 view=_cv,
             )
@@ -988,44 +968,50 @@ class ReadTypeOptionView(UserOnlyView):
     @discord.ui.button(
         label="Gợi ý ngẫu nhiên", style=discord.ButtonStyle.primary, row=0
     )
-    async def random_pick(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        items = list(self.gdata[self.data_type])
+    async def random_pick(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Lấy danh sách từ gdata đã khởi tạo ở __init__
+        items = self.gdata.get(self.data_type, [])
+
+        if not items:
+            return await interaction.response.send_message(
+                get_text(self.user.id, "empty"), ephemeral=True
+            )
 
         if self.data_type == "books":
             filtered = []
             for item in items:
                 if item.get("category") == "Cấm thư":
-                    if isinstance(
-                        interaction.user, discord.Member
-                    ) and user_can_access_forbidden(interaction.user):
+                    if user_can_access_forbidden(interaction.user):
                         filtered.append(item)
                 else:
                     filtered.append(item)
             items = filtered
 
         if not items:
-            await interaction.response.send_message(
+            return await interaction.response.send_message(
                 get_text(self.user.id, "empty"), ephemeral=True
             )
-            return
 
         item = random.choice(items)
         register_view(item, self.user.id)
-        item_embed = base_item_embed(item, self.data_type)
-        pick_key = {"books": "random_pick_book", "facts": "random_pick_fact", "rumors": "random_pick_rumor"}.get(self.data_type, "random_pick_book")
+        
+        pick_key = {
+            "books": "random_pick_book", 
+            "facts": "random_pick_fact", 
+            "rumors": "random_pick_rumor"
+        }.get(self.data_type, "random_pick_book")
+
         await interaction.response.edit_message(
-            content=None,
-            embeds=[librarian_embed(get_text(self.user.id, pick_key)), item_embed],
+            embeds=[librarian_embed(get_text(self.user.id, pick_key)), base_item_embed(item, self.data_type)],
             view=PostReadView(self.user, item["id"], self.data_type),
         )
 
     @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
-    async def exit_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(content=None, embeds=[librarian_embed(self.farewell_text)], view=None)
+    async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(
+            embed=librarian_embed(get_text(self.user.id, "farewell")), 
+            view=None
+        )
 
 
 class BookCategoryPickView(UserOnlyView):
