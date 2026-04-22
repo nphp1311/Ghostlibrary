@@ -643,28 +643,29 @@ class ExitConfirmView(UserOnlyView):
 
 
 class HomeButton(discord.ui.Button):
-    def __init__(self, user, row=4):
-        super().__init__(label=get_text(user.id, "btn_home"), style=discord.ButtonStyle.secondary, row=row)
+    def __init__(self, user, row=None):
+        super().__init__(
+            label="Trang đầu",
+            style=discord.ButtonStyle.secondary,
+            row=row
+        )
         self.user = user
 
-    @property
-    def welcome_text(self) -> str:
-        gd = get_guild_data(self.user.guild.id) if isinstance(self.user, discord.Member) else {}
-        return get_welcome_text(gd, get_lang(self.user.id))
-
     async def callback(self, interaction: discord.Interaction):
-        if self.user.id in drafts:
-            await interaction.response.edit_message(
-                content=get_text(self.user.id, "exit_confirm"),
-                embeds=[],
-                view=ExitConfirmView(self.user, None, go_home=True),
+
+        # ❗ chống người khác bấm
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message(
+                "Bạn không thể dùng nút này.", ephemeral=True
             )
-        else:
-            await interaction.response.edit_message(
-                content=None,
-                embeds=[librarian_embed(self.welcome_text)],
-                view=MainMenuView(self.user),
-            )
+            return
+
+        # ❗ FIX QUAN TRỌNG: luôn response
+        await interaction.response.edit_message(
+            content=None,
+            embed=librarian_embed(get_text(self.user.id, "home")),
+            view=MainMenuView(self.user)
+        )
 
 
 class MainMenuView(UserOnlyView):
