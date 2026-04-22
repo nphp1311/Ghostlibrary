@@ -655,17 +655,43 @@ class HomeButton(discord.ui.Button):
 
         # ❗ chống người khác bấm
         if interaction.user.id != self.user.id:
-            await interaction.response.send_message(
-                "Bạn không thể dùng nút này.", ephemeral=True
-            )
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "Bạn không thể dùng nút này.", ephemeral=True
+                )
+            else:
+                await interaction.followup.send(
+                    "Bạn không thể dùng nút này.", ephemeral=True
+                )
             return
 
-        # ❗ FIX QUAN TRỌNG: luôn response
-        await interaction.response.edit_message(
-            content=None,
-            embed=librarian_embed(get_text(self.user.id, "home")),
-            view=MainMenuView(self.user)
-        )
+        embed = librarian_embed(get_text(self.user.id, "home"))
+        view = MainMenuView(self.user)
+
+        # 🔥 FIX QUAN TRỌNG: handle cả 2 trạng thái interaction
+        try:
+            if interaction.response.is_done():
+                await interaction.edit_original_response(
+                    content=None,
+                    embed=embed,
+                    view=view
+                )
+            else:
+                await interaction.response.edit_message(
+                    content=None,
+                    embed=embed,
+                    view=view
+                )
+        except Exception:
+            # 🔒 fallback cuối cùng (tránh fail cứng)
+            try:
+                await interaction.followup.send(
+                    embed=embed,
+                    view=view,
+                    ephemeral=True
+                )
+            except Exception:
+                pass
 
 
 class MainMenuView(UserOnlyView):
@@ -1597,11 +1623,12 @@ class SingleTextModal(discord.ui.Modal):
         super().__init__(title=title)
         self.user = user
         self.field_name = field_name
+
         self.input = discord.ui.TextInput(
             label=label,
             default=current_value,
             required=False if field_name == "author" else True,
-            max_length=max_length,
+            max_length=4000 if field_name == "content" else max_length,  # 🔥 fix cứng 4000
             style=discord.TextStyle.long
             if field_name == "content"
             else discord.TextStyle.short,
@@ -1617,17 +1644,24 @@ class SingleTextModal(discord.ui.Modal):
 
         value = self.input.value.strip()
 
+        # 🔥 chống vượt 4000 backend
+        if self.field_name == "content" and len(value) > 4000:
+            await interaction.response.send_message(
+                "Nội dung vượt quá 4000 ký tự.", ephemeral=True
+            )
+            return
+
         _dt = drafts[self.user.id]["data_type"]
         _wf_key = "write_full_rumors" if _dt == "rumors" else "write_full"
 
+        # ===== AUTHOR =====
         if self.field_name == "author":
             if not value:
                 value = "????"
                 drafts[self.user.id]["author"] = value
-                await interaction.response.send_message(
-                    get_text(self.user.id, "author_empty_fill"), ephemeral=True
-                )
-                await interaction.message.edit(
+
+                # ❗ FIX: chỉ dùng 1 response, không edit message thủ công nữa
+                await interaction.response.edit_message(
                     content=get_text(self.user.id, _wf_key),
                     view=WriteEditorView(
                         self.user,
@@ -1635,9 +1669,17 @@ class SingleTextModal(discord.ui.Modal):
                         edit_mode=(drafts[self.user.id].get("mode") == "edit"),
                     ),
                 )
+
+                # gửi thông báo riêng
+                await interaction.followup.send(
+                    get_text(self.user.id, "author_empty_fill"),
+                    ephemeral=True
+                )
                 return
 
             drafts[self.user.id]["author"] = value
+
+        # ===== OTHER FIELDS =====
         else:
             if not value:
                 await interaction.response.send_message(
@@ -1647,6 +1689,7 @@ class SingleTextModal(discord.ui.Modal):
 
             drafts[self.user.id][self.field_name] = value
 
+        # 🔥 FIX QUAN TRỌNG NHẤT: luôn refresh view bằng response
         await interaction.response.edit_message(
             content=get_text(self.user.id, _wf_key),
             view=WriteEditorView(
@@ -1655,7 +1698,6 @@ class SingleTextModal(discord.ui.Modal):
                 edit_mode=(drafts[self.user.id].get("mode") == "edit"),
             ),
         )
-
 
 class WriteEditorView(UserOnlyView):
     def __init__(self, user, data_type, edit_mode=False):
