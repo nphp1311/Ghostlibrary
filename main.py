@@ -16,8 +16,8 @@ intents.presences = True
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-DATA_FILE = "library.json"
-USER_PREFS_FILE = "user_prefs.json"
+DATA_FILE = "/tmp/library.json"
+USER_PREFS_FILE = "/tmp/user_prefs.json"
 
 BOOK_CATEGORIES = ["Du ký", "Sử ký", "Sách nghiên cứu", "Tiểu thuyết", "Cấm thư"]
 ITEMS_PER_PAGE = 10
