@@ -693,17 +693,14 @@ class MainMenuView(UserOnlyView):
             self.add_item(admin_btn)
 
     @discord.ui.button(label="Đọc", style=discord.ButtonStyle.primary, row=0)
-async def read_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-    # Thêm dòng print này để kiểm tra xem bot có chạy vào đây không
-    print(f"User {self.user.id} bấm nút Đọc") 
-    
-    try:
+    async def read_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         await interaction.response.edit_message(
+            content=None,
             embed=librarian_embed(get_text(self.user.id, "read_ask")),
-            view=ReadMenuView(self.user) # Đảm bảo class này đã được định nghĩa ở trên
+            view=ReadMenuView(self.user),
         )
-    except Exception as e:
-        print(f"Lỗi khi mở ReadMenuView: {e}")
 
     @discord.ui.button(label="Viết", style=discord.ButtonStyle.primary, row=0)
     async def write_btn(
@@ -885,23 +882,26 @@ class LanguageView(UserOnlyView):
 class ReadMenuView(UserOnlyView):
     def __init__(self, user):
         super().__init__(user, timeout=600)
-        # Kiểm tra kỹ: Tên biến (self.books) phải trùng với tên hàm (async def books)
-        self.books.label     = get_text(user.id, "btn_books")
-        self.facts.label     = get_text(user.id, "type_facts") # <--- KIỂM TRA TÊN NÀY
-        self.rumors.label    = get_text(user.id, "btn_rumors")
-        self.my_works.label  = get_text(user.id, "btn_my_writes")
-        self.exit_btn.label  = get_text(user.id, "btn_exit")
+        self.books.label    = get_text(user.id, "btn_books")
+        self.facts.label    = get_text(user.id, "type_facts") # PHẢI CÓ DÒNG NÀY
+        self.rumors.label   = get_text(user.id, "btn_rumors")
+        self.my_works.label = get_text(user.id, "btn_my_writes")
+        self.exit_btn.label = get_text(user.id, "btn_exit")
         self.add_item(HomeButton(self.user, row=3))
 
     @discord.ui.button(label="Sách", style=discord.ButtonStyle.primary, row=0)
     async def books(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(view=ReadTypeOptionView(self.user, "books"))
+        await interaction.response.edit_message(
+            embed=librarian_embed(get_text(self.user.id, "book_action")),
+            view=ReadTypeOptionView(self.user, "books"),
+        )
 
     @discord.ui.button(label="Fact", style=discord.ButtonStyle.primary, row=0)
-    async def facts(self, interaction: discord.Interaction, button: discord.ui.Button): # Tên hàm là facts
-        await interaction.response.edit_message(view=ReadTypeOptionView(self.user, "facts"))
-
-    # ... các nút khác giữ nguyên ...
+    async def facts(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(
+            embed=librarian_embed(get_text(self.user.id, "fact_action")),
+            view=ReadTypeOptionView(self.user, "facts"),
+        )
 
     @discord.ui.button(label="Tin đồn", style=discord.ButtonStyle.primary, row=0)
     async def rumors(self, interaction: discord.Interaction, button: discord.ui.Button):
