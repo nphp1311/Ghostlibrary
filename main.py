@@ -180,14 +180,14 @@ STRINGS = {
         "farewell": "🌕 *\"Hẹn gặp lại bạn vào lần sau.\"*\n\nThủ thư ma gật đầu chào tạm biệt bạn rồi nhẹ nhàng tan biến vào trong bóng tối.",
         # UI labels
         "btn_home": "🏠 Trang đầu",
-        "btn_read": "Đọc",
-        "btn_write": "Viết",
-        "btn_chat": "Trò chuyện",
-        "btn_search": "Tra cứu",
-        "btn_exit": "Thoát",
-        "btn_lang": "Chuyển ngôn ngữ",
-        "btn_books": "Sách",
-        "btn_rumors": "Tin đồn",
+        "btn_read": "📖 Đọc",
+        "btn_write": "✒️ Viểt",
+        "btn_chat": "🗨️ Trò chuyện ",
+        "btn_search": "🔍 Tra cứu",
+        "btn_exit": "🚪 Thoát",
+        "btn_lang": "🗣️ Chuyển ngôn ngữ",
+        "btn_books": "📓 Sách",
+        "btn_rumors": "👀 Tin đồn",
         "btn_my_writes": "Tôi muốn đọc lại những gì mình đã viết",
         "btn_catalog": "Cho tôi xem danh mục hiện có",
         "btn_random": "Gợi ý ngẫu nhiên",
@@ -200,11 +200,11 @@ STRINGS = {
         "btn_voted_list": "Danh mục nội dung đã vote",
         "btn_all_works": "Toàn bộ tác phẩm",
         "btn_all_authors": "Toàn bộ tác giả",
-        "btn_write_new": "Viết nội dung mới",
-        "btn_edit_existing": "Sửa lại nội dung đã gửi",
-        "btn_write_books": "Sách (tối đa 4000 ký tự)",
-        "btn_write_facts": "Fact (tối đa 4000 ký tự)",
-        "btn_write_rumors": "Tin đồn (tối đa 4000 ký tự)",
+        "btn_write_new": "✒️ Viểt nội dung mới",
+        "btn_edit_existing": "✒️ Sửa lại nội dung đã gửi",
+        "btn_write_books": "📓 Sách (tối đa 4000 ký tự)",
+        "btn_write_facts": "🍎 Fact (tối đa 4000 ký tự)",
+        "btn_write_rumors": "👀 Tin đồn (tối đa 4000 ký tự)",
         "btn_clear_role": "Xoá role hiện tại",
         "btn_manage_del": "🗑️ Quản lý nội dung",
         "btn_manage_lore": "🧿 Quản lý Lore",
@@ -254,7 +254,7 @@ STRINGS = {
         "sort_newest": "Mới nhất -> cũ nhất",
         "sort_oldest": "Cũ nhất -> mới nhất",
         "invite_continue": "Mời bạn tiếp tục:",
-        "type_books": "Sách", "type_facts": "Fact", "type_rumors": "Tin đồn",
+        "type_books": "📓 Sách", "type_facts": "🍎 Fact", "type_rumors": "👀 Tin đồn",
         "edit_title_book": "Sửa tên sách",
         "edit_title_fact": "Sửa tên fact",
         "edit_title_rumor": "Sửa tên tin đồn",
@@ -344,14 +344,14 @@ STRINGS = {
         "farewell": "🌕 *\"Until we meet again.\"*\n\nThe Ghost Librarian bows gently and fades back into the shadows.",
         # UI labels
         "btn_home": "🏠 Home",
-        "btn_read": "Read",
-        "btn_write": "Write",
-        "btn_chat": "Chat",
-        "btn_search": "Search",
-        "btn_exit": "Exit",
-        "btn_lang": "Language",
-        "btn_books": "Books",
-        "btn_rumors": "Rumors",
+        "btn_read": "📖 Read",
+        "btn_write": "✒️ Write",
+        "btn_chat": "🗨️ Chat",
+        "btn_search": "🔍 Search",
+        "btn_exit": "🚪 Exit",
+        "btn_lang": "🗣️ Language",
+        "btn_books": "📓 Books",
+        "btn_rumors": "👀 Rumors",
         "btn_my_writes": "My Submitted Works",
         "btn_catalog": "Browse Catalog",
         "btn_random": "Random Pick",
@@ -364,11 +364,11 @@ STRINGS = {
         "btn_voted_list": "My Voted Works",
         "btn_all_works": "All Works",
         "btn_all_authors": "All Authors",
-        "btn_write_new": "Write New Content",
-        "btn_edit_existing": "Edit Existing Submission",
-        "btn_write_books": "Books (max 5000 chars)",
-        "btn_write_facts": "Facts (max 300 chars)",
-        "btn_write_rumors": "Rumors (max 300 chars)",
+        "btn_write_new": "✒️ Write New Content",
+        "btn_edit_existing": "✒️ Edit Existing Submission",
+        "btn_write_books": "📓 Books (max 5000 chars)",
+        "btn_write_facts": "🍎 Facts (max 300 chars)",
+        "btn_write_rumors": "👀 Rumors (max 300 chars)",
         "btn_clear_role": "Remove Current Role",
         "btn_manage_del": "🗑️ Manage Content",
         "btn_manage_lore": "🧿 Manage Lore",
@@ -633,7 +633,7 @@ class ExitConfirmView(UserOnlyView):
             view=self.parent_view
         )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger)
     async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
 
         drafts.pop(self.user.id, None)
@@ -791,7 +791,7 @@ class LanguageView(UserOnlyView):
             view=MainMenuView(self.user),
         )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -808,21 +808,21 @@ class ReadMenuView(UserOnlyView):
         self.exit_btn.label = get_text(user.id, "btn_exit")
         self.add_item(HomeButton(self.user, row=3))
 
-    @discord.ui.button(label="Sách", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="📓 Sách", style=discord.ButtonStyle.primary, row=0)
     async def books(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             embed=librarian_embed(get_text(self.user.id, "book_action")),
             view=ReadTypeOptionView(self.user, "books"),
         )
 
-    @discord.ui.button(label="Fact", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="🍎 Fact", style=discord.ButtonStyle.primary, row=0)
     async def facts(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             embed=librarian_embed(get_text(self.user.id, "fact_action")),
             view=ReadTypeOptionView(self.user, "facts"),
         )
 
-    @discord.ui.button(label="Tin đồn", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="👀 Tin đồn", style=discord.ButtonStyle.primary, row=0)
     async def rumors(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             embed=librarian_embed(get_text(self.user.id, "rumor_action")),
@@ -836,7 +836,7 @@ class ReadMenuView(UserOnlyView):
             view=MyWorksTypeView(self.user),
         )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=2)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2)
     async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             content=None, 
@@ -912,7 +912,7 @@ class ReadTypeOptionView(UserOnlyView):
             view=PostReadView(self.user, item["id"], self.data_type),
         )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             embed=librarian_embed(get_text(self.user.id, "farewell")), 
@@ -950,7 +950,7 @@ class BookCategoryPickView(UserOnlyView):
             self.add_item(btn)
 
         exit_btn = discord.ui.Button(
-            label="Thoát", style=discord.ButtonStyle.danger, row=2
+            label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2
         )
 
         async def exit_callback(interaction: discord.Interaction):
@@ -1025,7 +1025,7 @@ class PostReadView(UserOnlyView):
             view=MainMenuView(self.user),
         )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1181,7 +1181,7 @@ class CatalogView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=4))
 
     def page_embed(self):
-        type_labels = {"books": "📘 Sách", "facts": "📗 Fact", "rumors": "📕 Tin đồn"}
+        type_labels = {"books": "📓 Sách", "facts": "🍎 Fact", "rumors": "👀 Tin đồn"}
         type_label = type_labels.get(self.data_type, self.data_type)
         category_text = f" — {self.category}" if self.category else ""
         embed = discord.Embed(
@@ -1301,22 +1301,22 @@ class MyWorksTypeView(UserOnlyView):
         self.exit_btn.label = get_text(user.id, "btn_exit")
         self.add_item(HomeButton(self.user, row=2))
 
-    @discord.ui.button(label="Sách", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="📓 Sách", style=discord.ButtonStyle.primary, row=0)
     async def books(self, interaction: discord.Interaction, button: discord.ui.Button):
         _cv = CatalogView(self.user, "books", owner_id=self.user.id, only_owner=True, edit_mode=True)
         await interaction.response.edit_message(content=None, embeds=[_cv.page_embed()], view=_cv)
 
-    @discord.ui.button(label="Fact", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="🍎 Fact", style=discord.ButtonStyle.primary, row=0)
     async def facts(self, interaction: discord.Interaction, button: discord.ui.Button):
         _cv = CatalogView(self.user, "facts", owner_id=self.user.id, only_owner=True, edit_mode=True)
         await interaction.response.edit_message(content=None, embeds=[_cv.page_embed()], view=_cv)
 
-    @discord.ui.button(label="Tin đồn", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="👀 Tin đồn", style=discord.ButtonStyle.primary, row=0)
     async def rumors(self, interaction: discord.Interaction, button: discord.ui.Button):
         _cv = CatalogView(self.user, "rumors", owner_id=self.user.id, only_owner=True, edit_mode=True)
         await interaction.response.edit_message(content=None, embeds=[_cv.page_embed()], view=_cv)
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1329,7 +1329,7 @@ class NoWorksView(UserOnlyView):
         self.exit_btn.label = get_text(user.id, "btn_exit")
         self.add_item(HomeButton(self.user, row=1))
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=0)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=0)
     async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             content=None, embeds=[librarian_embed(self.farewell_text)], view=None
@@ -1345,7 +1345,7 @@ class WriteMainView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=2))
 
     @discord.ui.button(
-        label="Viết nội dung mới", style=discord.ButtonStyle.success, row=0
+        label="✒️ Viểt nội dung mới", style=discord.ButtonStyle.success, row=0
     )
     async def new_content(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -1382,7 +1382,7 @@ class WriteMainView(UserOnlyView):
             view=MyWorksTypeView(self.user),
         )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1407,7 +1407,7 @@ class WriteTypeSelectView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=2))
 
     @discord.ui.button(
-        label="Sách (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
+        label="📓 Sách (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
     )
     async def books(self, interaction: discord.Interaction, button: discord.ui.Button):
         drafts[self.user.id] = {
@@ -1427,7 +1427,7 @@ class WriteTypeSelectView(UserOnlyView):
         )
 
     @discord.ui.button(
-        label="Fact (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
+        label="🍎 Fact (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
     )
     async def facts(self, interaction: discord.Interaction, button: discord.ui.Button):
         drafts[self.user.id] = {
@@ -1447,7 +1447,7 @@ class WriteTypeSelectView(UserOnlyView):
         )
 
     @discord.ui.button(
-        label="Tin đồn (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
+        label="👀 Tin đồn (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
     )
     async def rumors(self, interaction: discord.Interaction, button: discord.ui.Button):
         drafts[self.user.id] = {
@@ -1466,7 +1466,7 @@ class WriteTypeSelectView(UserOnlyView):
             view=WriteEditorView(self.user, "rumors"),
         )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1496,7 +1496,7 @@ class BookWriteCategoryView(UserOnlyView):
             self.add_item(btn)
 
         exit_btn = discord.ui.Button(
-            label="Thoát", style=discord.ButtonStyle.danger, row=2
+            label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2
         )
 
         async def exit_callback(interaction: discord.Interaction):
@@ -1774,7 +1774,7 @@ class WriteEditorView(UserOnlyView):
                 view=MainMenuView(self.user),
             )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=2)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2)
     async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             content=get_text(self.user.id, "exit_confirm"),
@@ -1880,7 +1880,7 @@ class ChatMenuView(UserOnlyView):
             view=PostReadView(self.user, item["id"], dt),
         )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=2)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1904,7 +1904,7 @@ class ChatBackView(UserOnlyView):
             view=ChatMenuView(self.user),
         )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1968,7 +1968,7 @@ class SearchMenuView(UserOnlyView):
             content=None, embeds=[_av.page_embed()], view=_av
         )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=2)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1981,19 +1981,19 @@ class SearchTypeView(UserOnlyView):
         self.mode = mode
         self.add_item(HomeButton(self.user, row=2))
 
-    @discord.ui.button(label="Sách", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="📓 Sách", style=discord.ButtonStyle.primary, row=0)
     async def books(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.show(interaction, "books")
 
-    @discord.ui.button(label="Fact", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="🍎 Fact", style=discord.ButtonStyle.primary, row=0)
     async def facts(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.show(interaction, "facts")
 
-    @discord.ui.button(label="Tin đồn", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="👀 Tin đồn", style=discord.ButtonStyle.primary, row=0)
     async def rumors(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.show(interaction, "rumors")
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -2410,7 +2410,7 @@ class DeleteConfirmItemView(UserOnlyView):
         self.add_item(cancel_btn)
 
     def confirm_embed(self):
-        type_labels = {"books": "Sách", "facts": "Fact", "rumors": "Tin đồn"}
+        type_labels = {"books": "📓 Sách", "facts": "🍎 Fact", "rumors": "👀 Tin đồn"}
         embed = discord.Embed(title="⚠️ Xác nhận xoá tác phẩm", color=0xFF6B00)
         embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         embed.add_field(name="📖 Tác phẩm", value=self.item["title"], inline=False)
@@ -2425,7 +2425,7 @@ class DeleteSelectItemView(UserOnlyView):
         super().__init__(user, timeout=180)
         self.dt = dt
         items = sorted(self.gdata[dt], key=lambda x: x.get("date", ""), reverse=True)[:25]
-        type_labels = {"books": "Sách", "facts": "Fact", "rumors": "Tin đồn"}
+        type_labels = {"books": "📓 Sách", "facts": "🍎 Fact", "rumors": "👀 Tin đồn"}
         if items:
             options = [
                 discord.SelectOption(
@@ -2457,7 +2457,7 @@ class DeleteSelectItemView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=1))
 
     def panel_embed(self):
-        type_labels = {"books": "Sách", "facts": "Fact", "rumors": "Tin đồn"}
+        type_labels = {"books": "📓 Sách", "facts": "🍎 Fact", "rumors": "👀 Tin đồn"}
         total = len(self.gdata[self.dt])
         embed = discord.Embed(title=f"🗑️ Xoá {type_labels[self.dt]}", color=0x4b0082)
         embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
@@ -2473,7 +2473,7 @@ class DeleteSelectItemView(UserOnlyView):
 class DeleteSelectTypeView(UserOnlyView):
     def __init__(self, user):
         super().__init__(user, timeout=180)
-        for label, emoji, dt in [("Sách", "📘", "books"), ("Fact", "📗", "facts"), ("Tin đồn", "📕", "rumors")]:
+        for label, emoji, dt in [("Sách", "📓", "books"), ("Fact", "🍎", "facts"), ("Tin đồn", "👀", "rumors")]:
             btn = discord.ui.Button(label=label, emoji=emoji, style=discord.ButtonStyle.secondary, row=0)
             def make_type_cb(data_type):
                 async def cb(interaction: discord.Interaction):
@@ -2701,7 +2701,7 @@ class DeleteMenuView(UserOnlyView):
         embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
         embed.add_field(
             name="📊 Kho dữ liệu hiện tại",
-            value=f"📘 Sách: {books}\n📗 Fact: {facts}\n📕 Tin đồn: {rumors}",
+            value=f"📓 Sách: {books}\n🍎 Fact: {facts}\n👀 Tin đồn: {rumors}",
             inline=False,
         )
         embed.add_field(
@@ -3032,7 +3032,7 @@ class LoreMenuView(UserOnlyView):
             "📜 **Lore thư viện** — Câu trả lời khi user hỏi về thư viện (random 1 câu)\n"
             "👻 **Lore thủ thư** — Câu trả lời khi user hỏi về nhân vật (random 1 câu)\n"
             "👋 **Lời chào mở đầu** — Hiển thị khi chạy `/ghostlibrary` (admin chọn 1 câu)\n"
-            "🌕 **Lời tạm biệt** — Hiển thị khi user bấm Thoát (admin chọn 1 câu)"
+            "🌕 **Lời tạm biệt** — Hiển thị khi user bấm 🚪 Thoát (admin chọn 1 câu)"
         )
         return embed
 
@@ -3058,7 +3058,7 @@ class MainMenuView(UserOnlyView):
             admin_btn.callback = admin_callback
             self.add_item(admin_btn)
 
-    @discord.ui.button(label="Đọc", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="📖 Đọc", style=discord.ButtonStyle.primary, row=0)
     async def read_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -3068,7 +3068,7 @@ class MainMenuView(UserOnlyView):
             view=ReadMenuView(self.user),
         )
 
-    @discord.ui.button(label="Viết", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="✒️ Viểt", style=discord.ButtonStyle.primary, row=0)
     async def write_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -3078,7 +3078,7 @@ class MainMenuView(UserOnlyView):
             view=WriteMainView(self.user),
         )
 
-    @discord.ui.button(label="Trò chuyện", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="🗨️ Trò chuyện ", style=discord.ButtonStyle.primary, row=0)
     async def chat_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -3088,7 +3088,7 @@ class MainMenuView(UserOnlyView):
             view=ChatMenuView(self.user),
         )
 
-    @discord.ui.button(label="Tra cứu", style=discord.ButtonStyle.success, row=0)
+    @discord.ui.button(label="🔍 Tra cứu", style=discord.ButtonStyle.success, row=0)
     async def search_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -3098,14 +3098,14 @@ class MainMenuView(UserOnlyView):
             view=SearchMenuView(self.user),
         )
 
-    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         await interaction.response.edit_message(content=None, embeds=[librarian_embed(self.farewell_text)], view=None)
 
     @discord.ui.button(
-        label="Chuyển ngôn ngữ", style=discord.ButtonStyle.secondary, row=1
+        label="🗣️ Chuyển ngôn ngữ", style=discord.ButtonStyle.secondary, row=1
     )
     async def lang_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
