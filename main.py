@@ -305,9 +305,9 @@ STRINGS = {
         "btn_all_authors": "Toàn bộ tác giả",
         "btn_write_new": "Viết nội dung mới",
         "btn_edit_existing": "Sửa lại nội dung đã gửi",
-        "btn_write_books": "Sách (tối đa 5000 ký tự)",
-        "btn_write_facts": "Fact (tối đa 300 ký tự)",
-        "btn_write_rumors": "Tin đồn (tối đa 300 ký tự)",
+        "btn_write_books": "Sách (tối đa 4000 ký tự)",
+        "btn_write_facts": "Fact (tối đa 4000 ký tự)",
+        "btn_write_rumors": "Tin đồn (tối đa 4000 ký tự)",
         "btn_clear_role": "Xoá role hiện tại",
         "btn_manage_del": "🗑️ Quản lý nội dung",
         "btn_manage_lore": "🧿 Quản lý Lore",
@@ -1780,11 +1780,13 @@ class WriteEditorView(UserOnlyView):
                 self.title_btn.label = get_text(uid, "edit_title_fact")
             else:
                 self.title_btn.label = get_text(uid, "edit_title_rumor")
+
             self.author_btn.label   = get_text(uid, "edit_author")
             self.category_btn.label = get_text(uid, "edit_category")
             self.content_btn.label  = get_text(uid, "edit_content")
             self.image_btn.label    = get_text(uid, "edit_image")
             self.submit_btn.label   = get_text(uid, "edit_submit")
+
         else:
             if data_type == "books":
                 self.title_btn.label  = get_text(uid, "new_title_book")
@@ -1810,22 +1812,14 @@ class WriteEditorView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=3))
 
     @discord.ui.button(label="Điền tên", style=discord.ButtonStyle.primary, row=0)
-    async def title_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+    async def title_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         current = drafts.get(self.user.id, {}).get("title", "")
         await interaction.response.send_modal(
-            SingleTextModal(
-                self.user, "title", "Tên tác phẩm", "Nhập tên", 150, current
-            )
+            SingleTextModal(self.user, "title", "Tên tác phẩm", "Nhập tên", 150, current)
         )
 
-    @discord.ui.button(
-        label="Điền tên tác giả", style=discord.ButtonStyle.primary, row=0
-    )
-    async def author_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+    @discord.ui.button(label="Điền tên tác giả", style=discord.ButtonStyle.primary, row=0)
+    async def author_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         current = drafts.get(self.user.id, {}).get("author", "")
         await interaction.response.send_modal(
             SingleTextModal(
@@ -1838,46 +1832,42 @@ class WriteEditorView(UserOnlyView):
             )
         )
 
-    @discord.ui.button(
-        label="Chọn thể loại", style=discord.ButtonStyle.primary, row=0
-    )
-    async def category_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+    @discord.ui.button(label="Chọn thể loại", style=discord.ButtonStyle.primary, row=0)
+    async def category_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             content=None,
             embed=librarian_embed(get_text(self.user.id, "write_category_ask")),
             view=BookWriteCategoryView(self.user),
         )
 
-    @discord.ui.button(
-        label="Điền nội dung", style=discord.ButtonStyle.primary, row=1
-    )
-    async def content_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+    @discord.ui.button(label="Điền nội dung", style=discord.ButtonStyle.primary, row=1)
+    async def content_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         current = drafts.get(self.user.id, {}).get("content", "")
-        max_length = 4000 if self.data_type == "books" else 500
+
+        max_length = 4000  # ✅ áp dụng cho tất cả
+
         if current and len(current) > max_length:
             current = current[:max_length]
+
         await interaction.response.send_modal(
             SingleTextModal(
-                self.user, "content", "Nội dung", "Nhập nội dung", max_length, current
+                self.user,
+                "content",
+                "Nội dung",
+                "Nhập nội dung",
+                max_length,
+                current,
             )
         )
 
     @discord.ui.button(label="Ảnh minh họa", style=discord.ButtonStyle.secondary, row=1)
-    async def image_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+    async def image_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message(
             get_text(self.user.id, "attach_prompt"), ephemeral=True
         )
 
     @discord.ui.button(label="Gửi", style=discord.ButtonStyle.success, row=2)
-    async def submit_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+    async def submit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         draft = drafts.get(self.user.id)
         if not draft:
             await interaction.response.send_message(
@@ -1890,15 +1880,25 @@ class WriteEditorView(UserOnlyView):
         author = draft.get("author", "").strip() or "????"
         category = draft.get("category")
 
+        # ✅ validate độ dài content
+        if len(content) > 4000:
+            await interaction.response.send_message(
+                "Nội dung không được vượt quá 4000 ký tự.",
+                ephemeral=True
+            )
+            return
+
         if not title or not content:
             await interaction.response.send_message(
-                "Bạn cần điền đủ các trường bắt buộc trước khi gửi.", ephemeral=True
+                "Bạn cần điền đủ các trường bắt buộc trước khi gửi.",
+                ephemeral=True
             )
             return
 
         if self.data_type == "books" and not category:
             await interaction.response.send_message(
-                "Bạn cần chọn thể loại sách trước khi gửi.", ephemeral=True
+                "Bạn cần chọn thể loại sách trước khi gửi.",
+                ephemeral=True
             )
             return
 
@@ -1911,7 +1911,8 @@ class WriteEditorView(UserOnlyView):
 
             if not item or item.get("author_id") != str(self.user.id):
                 await interaction.response.send_message(
-                    "Bạn chỉ có thể sửa nội dung do chính mình gửi.", ephemeral=True
+                    "Bạn chỉ có thể sửa nội dung do chính mình gửi.",
+                    ephemeral=True
                 )
                 return
 
@@ -1932,6 +1933,7 @@ class WriteEditorView(UserOnlyView):
                 embed=librarian_embed(get_text(self.user.id, "updated")),
                 view=MainMenuView(self.user),
             )
+
         else:
             gd = self.gdata
             new_item = {
@@ -1961,9 +1963,7 @@ class WriteEditorView(UserOnlyView):
             )
 
     @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=2)
-    async def exit_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+    async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             content=get_text(self.user.id, "exit_confirm"),
             view=ExitConfirmView(self.user, self),
