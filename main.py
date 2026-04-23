@@ -1857,7 +1857,9 @@ class WriteEditorView(UserOnlyView):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         current = drafts.get(self.user.id, {}).get("content", "")
-        max_length = 5000 if self.data_type == "books" else 500
+        max_length = 4000 if self.data_type == "books" else 500
+        if current and len(current) > max_length:
+            current = current[:max_length]
         await interaction.response.send_modal(
             SingleTextModal(
                 self.user, "content", "Nội dung", "Nhập nội dung", max_length, current
