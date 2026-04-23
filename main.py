@@ -16,15 +16,114 @@ intents.presences = True
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-DATA_FILE = "/tmp/library.json"
-USER_PREFS_FILE = "/tmp/user_prefs.json"
+DATA_FILE = "library.json"
+USER_PREFS_FILE = "user_prefs.json"
 
 BOOK_CATEGORIES = ["Du ký", "Sử ký", "Sách nghiên cứu", "Tiểu thuyết", "Cấm thư"]
 ITEMS_PER_PAGE = 10
 MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
 
 
+# ---------------------------------------------------------------------------
+# Storage layer
+# ---------------------------------------------------------------------------
+# When DATABASE_URL is set (Railway auto-injects this when you add a Postgres
+# plugin), all data is stored in a Postgres key-value table so it persists
+# across redeploys and container restarts. When DATABASE_URL is not set, the
+# bot falls back to local JSON files (useful for local development).
+# ---------------------------------------------------------------------------
+
+DATABASE_URL = os.environ.get("DATABASE_URL")
+_pg_pool = None
+
+if DATABASE_URL:
+    try:
+        import psycopg2
+        from psycopg2.pool import SimpleConnectionPool
+        from psycopg2.extras import Json
+
+        # Railway sometimes gives postgres:// URLs which psycopg2 accepts
+        # but SQLAlchemy-style libs reject. psycopg2 is fine either way.
+        _pg_pool = SimpleConnectionPool(1, 5, dsn=DATABASE_URL)
+
+        # Create the key-value table once.
+        _conn = _pg_pool.getconn()
+        try:
+            with _conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS bot_storage (
+                        key   TEXT PRIMARY KEY,
+                        value JSONB NOT NULL
+                    )
+                """)
+            _conn.commit()
+        finally:
+            _pg_pool.putconn(_conn)
+
+        print("[storage] Using PostgreSQL persistence.")
+    except Exception as e:
+        print(f"[storage] Failed to init PostgreSQL ({e}). Falling back to JSON files.")
+        _pg_pool = None
+else:
+    print("[storage] DATABASE_URL not set. Using local JSON files.")
+
+
+def _key_for(filename: str) -> str:
+    """Map a filename like 'library.json' to a stable DB key like 'library'."""
+    return os.path.splitext(os.path.basename(filename))[0]
+
+
+def _pg_load(key: str, default):
+    conn = _pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT value FROM bot_storage WHERE key = %s", (key,))
+            row = cur.fetchone()
+            if row is None:
+                return default
+            return row[0]
+    finally:
+        _pg_pool.putconn(conn)
+
+
+def _pg_save(key: str, data):
+    conn = _pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO bot_storage (key, value)
+                VALUES (%s, %s)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+                """,
+                (key, Json(data)),
+            )
+        conn.commit()
+    finally:
+        _pg_pool.putconn(conn)
+
+
 def load_json(filename, default):
+    # Try Postgres first.
+    if _pg_pool is not None:
+        try:
+            value = _pg_load(_key_for(filename), None)
+            if value is not None:
+                return value
+            # Nothing in DB yet — one-time migration from local JSON file if present.
+            if os.path.exists(filename):
+                try:
+                    with open(filename, "r", encoding="utf-8") as f:
+                        migrated = json.load(f)
+                    _pg_save(_key_for(filename), migrated)
+                    print(f"[storage] Migrated {filename} into Postgres.")
+                    return migrated
+                except Exception:
+                    pass
+            return default
+        except Exception as e:
+            print(f"[storage] Postgres load failed for {filename}: {e}")
+            # fall through to JSON file
     try:
         if os.path.exists(filename):
             with open(filename, "r", encoding="utf-8") as f:
@@ -35,6 +134,12 @@ def load_json(filename, default):
 
 
 def save_json(filename, data):
+    if _pg_pool is not None:
+        try:
+            _pg_save(_key_for(filename), data)
+            return
+        except Exception as e:
+            print(f"[storage] Postgres save failed for {filename}: {e}. Writing JSON file as fallback.")
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
@@ -111,8 +216,6 @@ ensure_data()
 
 STRINGS = {
     "vi": {
-        "home": "🏠 *Bạn đã quay trở lại sảnh chính của thư viện.*",
-        # ... các dòng khác
         "welcome": "👻 *Thủ thư ma hiện lên từ bóng tối và khẽ nói...*\n\nTôi có thể giúp gì cho bạn?",
         "read_ask": "📖 *Thủ thư ma hỏi:*\n\nBạn muốn đọc gì?",
         "write_ask": "✍️ *Tôi muốn...*",
@@ -180,14 +283,14 @@ STRINGS = {
         "farewell": "🌕 *\"Hẹn gặp lại bạn vào lần sau.\"*\n\nThủ thư ma gật đầu chào tạm biệt bạn rồi nhẹ nhàng tan biến vào trong bóng tối.",
         # UI labels
         "btn_home": "🏠 Trang đầu",
-        "btn_read": "📖 Đọc",
-        "btn_write": "✒️ Viết",
-        "btn_chat": "🗨️ Trò chuyện ",
-        "btn_search": "🔍 Tra cứu",
-        "btn_exit": "🚪 Thoát",
-        "btn_lang": "🗣️ Chuyển ngôn ngữ",
-        "btn_books": "📓 Sách",
-        "btn_rumors": "👀 Tin đồn",
+        "btn_read": "Đọc",
+        "btn_write": "Viết",
+        "btn_chat": "Trò chuyện",
+        "btn_search": "Tra cứu",
+        "btn_exit": "Thoát",
+        "btn_lang": "Chuyển ngôn ngữ",
+        "btn_books": "Sách",
+        "btn_rumors": "Tin đồn",
         "btn_my_writes": "Tôi muốn đọc lại những gì mình đã viết",
         "btn_catalog": "Cho tôi xem danh mục hiện có",
         "btn_random": "Gợi ý ngẫu nhiên",
@@ -200,11 +303,11 @@ STRINGS = {
         "btn_voted_list": "Danh mục nội dung đã vote",
         "btn_all_works": "Toàn bộ tác phẩm",
         "btn_all_authors": "Toàn bộ tác giả",
-        "btn_write_new": "✒️ Viết nội dung mới",
-        "btn_edit_existing": "✒️ Sửa lại nội dung đã gửi",
-        "btn_write_books": "📓 Sách (tối đa 4000 ký tự)",
-        "btn_write_facts": "🍎 Fact (tối đa 4000 ký tự)",
-        "btn_write_rumors": "👀 Tin đồn (tối đa 4000 ký tự)",
+        "btn_write_new": "Viết nội dung mới",
+        "btn_edit_existing": "Sửa lại nội dung đã gửi",
+        "btn_write_books": "Sách (tối đa 5000 ký tự)",
+        "btn_write_facts": "Fact (tối đa 300 ký tự)",
+        "btn_write_rumors": "Tin đồn (tối đa 300 ký tự)",
         "btn_clear_role": "Xoá role hiện tại",
         "btn_manage_del": "🗑️ Quản lý nội dung",
         "btn_manage_lore": "🧿 Quản lý Lore",
@@ -254,7 +357,7 @@ STRINGS = {
         "sort_newest": "Mới nhất -> cũ nhất",
         "sort_oldest": "Cũ nhất -> mới nhất",
         "invite_continue": "Mời bạn tiếp tục:",
-        "type_books": "📓 Sách", "type_facts": "🍎 Fact", "type_rumors": "👀 Tin đồn",
+        "type_books": "Sách", "type_facts": "Fact", "type_rumors": "Tin đồn",
         "edit_title_book": "Sửa tên sách",
         "edit_title_fact": "Sửa tên fact",
         "edit_title_rumor": "Sửa tên tin đồn",
@@ -275,8 +378,6 @@ STRINGS = {
         "new_image": "Ảnh minh họa (có thể bỏ trống)",
     },
     "en": {
-        "home": "🏠 *You have returned to the main hall of the library.*",
-        # ... các dòng khác
         "welcome": "👻 *The Ghost Librarian materializes from the shadows...*\n\nHow can I help you?",
         "read_ask": "📖 *The Ghost Librarian asks:*\n\nWhat would you like to read?",
         "write_ask": "✍️ *I want to...*",
@@ -344,14 +445,14 @@ STRINGS = {
         "farewell": "🌕 *\"Until we meet again.\"*\n\nThe Ghost Librarian bows gently and fades back into the shadows.",
         # UI labels
         "btn_home": "🏠 Home",
-        "btn_read": "📖 Read",
-        "btn_write": "✒️ Write",
-        "btn_chat": "🗨️ Chat",
-        "btn_search": "🔍 Search",
-        "btn_exit": "🚪 Exit",
-        "btn_lang": "🗣️ Language",
-        "btn_books": "📓 Books",
-        "btn_rumors": "👀 Rumors",
+        "btn_read": "Read",
+        "btn_write": "Write",
+        "btn_chat": "Chat",
+        "btn_search": "Search",
+        "btn_exit": "Exit",
+        "btn_lang": "Language",
+        "btn_books": "Books",
+        "btn_rumors": "Rumors",
         "btn_my_writes": "My Submitted Works",
         "btn_catalog": "Browse Catalog",
         "btn_random": "Random Pick",
@@ -364,11 +465,11 @@ STRINGS = {
         "btn_voted_list": "My Voted Works",
         "btn_all_works": "All Works",
         "btn_all_authors": "All Authors",
-        "btn_write_new": "✒️ Write New Content",
-        "btn_edit_existing": "✒️ Edit Existing Submission",
-        "btn_write_books": "📓 Books (max 5000 chars)",
-        "btn_write_facts": "🍎 Facts (max 300 chars)",
-        "btn_write_rumors": "👀 Rumors (max 300 chars)",
+        "btn_write_new": "Write New Content",
+        "btn_edit_existing": "Edit Existing Submission",
+        "btn_write_books": "Books (max 5000 chars)",
+        "btn_write_facts": "Facts (max 300 chars)",
+        "btn_write_rumors": "Rumors (max 300 chars)",
         "btn_clear_role": "Remove Current Role",
         "btn_manage_del": "🗑️ Manage Content",
         "btn_manage_lore": "🧿 Manage Lore",
@@ -503,7 +604,7 @@ def user_can_access_forbidden(member: discord.Member):
 
 def librarian_embed(text, color=0x4b0082):
     embed = discord.Embed(description=text, color=color)
-    embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+    embed.set_author(name="📜 Thư Viện Cổ 📜")
     return embed
 
 
@@ -619,56 +720,142 @@ class UserOnlyView(discord.ui.View):
 
 
 class ExitConfirmView(UserOnlyView):
-    def __init__(self, user, parent_view):
+    def __init__(self, user, return_view, go_home=False):
         super().__init__(user, timeout=60)
-        self.parent_view = parent_view
+        self.return_view = return_view
+        self.go_home = go_home
 
-    @discord.ui.button(label="Ở lại viết tiếp", style=discord.ButtonStyle.success)
-    async def stay_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.confirm_btn.label = get_text(user.id, "leave")
+        self.stay_btn.label = get_text(user.id, "stay")
 
-        # ❗ FIX QUAN TRỌNG: luôn phải response
-        await interaction.response.edit_message(
-            content=None,
-            embed=librarian_embed(get_text(self.user.id, "continue_writing")),
-            view=self.parent_view
-        )
-
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger)
-    async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-
+    @discord.ui.button(label="Vâng", style=discord.ButtonStyle.danger)
+    async def confirm_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         drafts.pop(self.user.id, None)
         draft_message_map.pop(self.user.id, None)
+        if self.go_home:
+            await interaction.response.edit_message(
+                content=None,
+                embeds=[librarian_embed(self.welcome_text)],
+                view=MainMenuView(self.user),
+            )
+        else:
+            await interaction.response.edit_message(content=None, embeds=[librarian_embed(self.farewell_text)], view=None)
 
+    @discord.ui.button(label="Ở lại viết tiếp", style=discord.ButtonStyle.success)
+    async def stay_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         await interaction.response.edit_message(
-            content=None,
-            embed=librarian_embed(get_text(self.user.id, "exited")),
-            view=MainMenuView(self.user)
+            content="Mời bạn tiếp tục:", view=self.return_view, embed=None
         )
 
 
 class HomeButton(discord.ui.Button):
-    def __init__(self, user, row=None):
-        super().__init__(
-            label="🏠 Trang đầu", 
-            style=discord.ButtonStyle.secondary, 
-            row=row
-        )
+    def __init__(self, user, row=4):
+        super().__init__(label=get_text(user.id, "btn_home"), style=discord.ButtonStyle.secondary, row=row)
         self.user = user
 
+    @property
+    def welcome_text(self) -> str:
+        gd = get_guild_data(self.user.guild.id) if isinstance(self.user, discord.Member) else {}
+        return get_welcome_text(gd, get_lang(self.user.id))
+
     async def callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user.id:
-            return await interaction.response.send_message(
-                get_text(self.user.id, "not_your_session"), ephemeral=True
+        if self.user.id in drafts:
+            await interaction.response.edit_message(
+                content=get_text(self.user.id, "exit_confirm"),
+                embeds=[],
+                view=ExitConfirmView(self.user, None, go_home=True),
             )
-        
-        # Quay lại MainMenuView
-        from __main__ import MainMenuView # Tránh lỗi circular import nếu cần
-        view = MainMenuView(self.user)
+        else:
+            await interaction.response.edit_message(
+                content=None,
+                embeds=[librarian_embed(self.welcome_text)],
+                view=MainMenuView(self.user),
+            )
+
+
+class MainMenuView(UserOnlyView):
+    def __init__(self, user):
+        super().__init__(user, timeout=600)
+        self.read_btn.label   = get_text(user.id, "btn_read")
+        self.write_btn.label  = get_text(user.id, "btn_write")
+        self.chat_btn.label   = get_text(user.id, "btn_chat")
+        self.search_btn.label = get_text(user.id, "btn_search")
+        self.exit_btn.label   = get_text(user.id, "btn_exit")
+        self.lang_btn.label   = get_text(user.id, "btn_lang")
+        if isinstance(user, discord.Member) and is_admin_member(user):
+            admin_btn = discord.ui.Button(
+                label="⚙️ Admin", style=discord.ButtonStyle.secondary, row=1
+            )
+            async def admin_callback(interaction: discord.Interaction):
+                _ap = AdminPanelView(self.user)
+                await interaction.response.edit_message(
+                    content=None, embeds=[_ap.panel_embed()], view=_ap
+                )
+            admin_btn.callback = admin_callback
+            self.add_item(admin_btn)
+
+    @discord.ui.button(label="Đọc", style=discord.ButtonStyle.primary, row=0)
+    async def read_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         await interaction.response.edit_message(
             content=None,
-            embed=librarian_embed(get_text(self.user.id, "home")),
-            view=view
+            embed=librarian_embed(get_text(self.user.id, "read_ask")),
+            view=ReadMenuView(self.user),
         )
+
+    @discord.ui.button(label="Viết", style=discord.ButtonStyle.primary, row=0)
+    async def write_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(
+            content=None,
+            embed=librarian_embed(get_text(self.user.id, "write_ask")),
+            view=WriteMainView(self.user),
+        )
+
+    @discord.ui.button(label="Trò chuyện", style=discord.ButtonStyle.primary, row=0)
+    async def chat_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(
+            content=None,
+            embed=librarian_embed(get_text(self.user.id, "chat_ask")),
+            view=ChatMenuView(self.user),
+        )
+
+    @discord.ui.button(label="Tra cứu", style=discord.ButtonStyle.success, row=0)
+    async def search_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(
+            content=None,
+            embed=librarian_embed(get_text(self.user.id, "search_ask")),
+            view=SearchMenuView(self.user),
+        )
+
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
+    async def exit_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(content=None, embeds=[librarian_embed(self.farewell_text)], view=None)
+
+    @discord.ui.button(
+        label="Chuyển ngôn ngữ", style=discord.ButtonStyle.secondary, row=1
+    )
+    async def lang_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(
+            content=get_text(self.user.id, "choose_language"),
+            view=LanguageView(self.user),
+            embed=None,
+        )
+
 
 class AdminPanelView(UserOnlyView):
     def __init__(self, user):
@@ -739,7 +926,7 @@ class AdminPanelView(UserOnlyView):
     def panel_embed(self):
         role_id = self.gdata["config"].get("forbidden_role")
         embed = discord.Embed(title="⚙️ Cài đặt Admin — Cấm thư", color=0x4b0082)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         if role_id:
             embed.add_field(
                 name="🔐 Role hiện tại",
@@ -791,7 +978,7 @@ class LanguageView(UserOnlyView):
             view=MainMenuView(self.user),
         )
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -802,71 +989,81 @@ class ReadMenuView(UserOnlyView):
     def __init__(self, user):
         super().__init__(user, timeout=600)
         self.books.label    = get_text(user.id, "btn_books")
-        self.facts.label    = get_text(user.id, "type_facts") # PHẢI CÓ DÒNG NÀY
         self.rumors.label   = get_text(user.id, "btn_rumors")
         self.my_works.label = get_text(user.id, "btn_my_writes")
         self.exit_btn.label = get_text(user.id, "btn_exit")
         self.add_item(HomeButton(self.user, row=3))
 
-    @discord.ui.button(label="📓 Sách", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Sách", style=discord.ButtonStyle.primary, row=0)
     async def books(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
+            content=None,
             embed=librarian_embed(get_text(self.user.id, "book_action")),
             view=ReadTypeOptionView(self.user, "books"),
         )
 
-    @discord.ui.button(label="🍎 Fact", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Fact", style=discord.ButtonStyle.primary, row=0)
     async def facts(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
+            content=None,
             embed=librarian_embed(get_text(self.user.id, "fact_action")),
             view=ReadTypeOptionView(self.user, "facts"),
         )
 
-    @discord.ui.button(label="👀 Tin đồn", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Tin đồn", style=discord.ButtonStyle.primary, row=0)
     async def rumors(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
+            content=None,
             embed=librarian_embed(get_text(self.user.id, "rumor_action")),
             view=ReadTypeOptionView(self.user, "rumors"),
         )
 
-    @discord.ui.button(label="Tác phẩm của tôi", style=discord.ButtonStyle.success, row=1)
-    async def my_works(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(
+        label="Tôi muốn đọc lại những gì mình đã viết",
+        style=discord.ButtonStyle.success,
+        row=1,
+    )
+    async def my_works(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         await interaction.response.edit_message(
+            content=None,
             embed=librarian_embed(get_text(self.user.id, "read_ask")),
             view=MyWorksTypeView(self.user),
         )
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2)
-    async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(
-            content=None, 
-            embeds=[librarian_embed(self.farewell_text)], 
-            view=None
-        )
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=2)
+    async def exit_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(content=None, embeds=[librarian_embed(self.farewell_text)], view=None)
 
 
 class ReadTypeOptionView(UserOnlyView):
     def __init__(self, user, data_type):
         super().__init__(user, timeout=600)
         self.data_type = data_type
-        self.catalog.label    = get_text(user.id, "btn_catalog")
+        self.catalog.label     = get_text(user.id, "btn_catalog")
         self.random_pick.label = get_text(user.id, "btn_random")
-        self.exit_btn.label   = get_text(user.id, "btn_exit")
+        self.exit_btn.label    = get_text(user.id, "btn_exit")
         self.add_item(HomeButton(self.user, row=2))
 
     @discord.ui.button(
         label="Cho tôi xem danh mục hiện có", style=discord.ButtonStyle.primary, row=0
     )
-    async def catalog(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def catalog(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         if self.data_type == "books":
             await interaction.response.edit_message(
+                content=None,
                 embed=librarian_embed(get_text(self.user.id, "category_ask")),
                 view=BookCategoryPickView(self.user),
             )
         else:
-            # CatalogView cho facts/rumors
             _cv = CatalogView(self.user, self.data_type)
             await interaction.response.edit_message(
+                content=None,
                 embeds=[_cv.page_embed()],
                 view=_cv,
             )
@@ -874,50 +1071,44 @@ class ReadTypeOptionView(UserOnlyView):
     @discord.ui.button(
         label="Gợi ý ngẫu nhiên", style=discord.ButtonStyle.primary, row=0
     )
-    async def random_pick(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Lấy danh sách từ gdata đã khởi tạo ở __init__
-        items = self.gdata.get(self.data_type, [])
-
-        if not items:
-            return await interaction.response.send_message(
-                get_text(self.user.id, "empty"), ephemeral=True
-            )
+    async def random_pick(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        items = list(self.gdata[self.data_type])
 
         if self.data_type == "books":
             filtered = []
             for item in items:
                 if item.get("category") == "Cấm thư":
-                    if user_can_access_forbidden(interaction.user):
+                    if isinstance(
+                        interaction.user, discord.Member
+                    ) and user_can_access_forbidden(interaction.user):
                         filtered.append(item)
                 else:
                     filtered.append(item)
             items = filtered
 
         if not items:
-            return await interaction.response.send_message(
+            await interaction.response.send_message(
                 get_text(self.user.id, "empty"), ephemeral=True
             )
+            return
 
         item = random.choice(items)
         register_view(item, self.user.id)
-        
-        pick_key = {
-            "books": "random_pick_book", 
-            "facts": "random_pick_fact", 
-            "rumors": "random_pick_rumor"
-        }.get(self.data_type, "random_pick_book")
-
+        item_embed = base_item_embed(item, self.data_type)
+        pick_key = {"books": "random_pick_book", "facts": "random_pick_fact", "rumors": "random_pick_rumor"}.get(self.data_type, "random_pick_book")
         await interaction.response.edit_message(
-            embeds=[librarian_embed(get_text(self.user.id, pick_key)), base_item_embed(item, self.data_type)],
+            content=None,
+            embeds=[librarian_embed(get_text(self.user.id, pick_key)), item_embed],
             view=PostReadView(self.user, item["id"], self.data_type),
         )
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
-    async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(
-            embed=librarian_embed(get_text(self.user.id, "farewell")), 
-            view=None
-        )
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
+    async def exit_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        await interaction.response.edit_message(content=None, embeds=[librarian_embed(self.farewell_text)], view=None)
 
 
 class BookCategoryPickView(UserOnlyView):
@@ -950,7 +1141,7 @@ class BookCategoryPickView(UserOnlyView):
             self.add_item(btn)
 
         exit_btn = discord.ui.Button(
-            label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2
+            label="Thoát", style=discord.ButtonStyle.danger, row=2
         )
 
         async def exit_callback(interaction: discord.Interaction):
@@ -1025,7 +1216,7 @@ class PostReadView(UserOnlyView):
             view=MainMenuView(self.user),
         )
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1181,14 +1372,14 @@ class CatalogView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=4))
 
     def page_embed(self):
-        type_labels = {"books": "📓 Sách", "facts": "🍎 Fact", "rumors": "👀 Tin đồn"}
+        type_labels = {"books": "📘 Sách", "facts": "📗 Fact", "rumors": "📕 Tin đồn"}
         type_label = type_labels.get(self.data_type, self.data_type)
         category_text = f" — {self.category}" if self.category else ""
         embed = discord.Embed(
             title=f"{type_label}{category_text} • Trang {self.page + 1}/{self.total_pages}",
             color=0x4b0082,
         )
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         if not self.current_items:
             embed.description = "*(Không có nội dung nào trong danh mục này.)*"
         else:
@@ -1301,22 +1492,22 @@ class MyWorksTypeView(UserOnlyView):
         self.exit_btn.label = get_text(user.id, "btn_exit")
         self.add_item(HomeButton(self.user, row=2))
 
-    @discord.ui.button(label="📓 Sách", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Sách", style=discord.ButtonStyle.primary, row=0)
     async def books(self, interaction: discord.Interaction, button: discord.ui.Button):
         _cv = CatalogView(self.user, "books", owner_id=self.user.id, only_owner=True, edit_mode=True)
         await interaction.response.edit_message(content=None, embeds=[_cv.page_embed()], view=_cv)
 
-    @discord.ui.button(label="🍎 Fact", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Fact", style=discord.ButtonStyle.primary, row=0)
     async def facts(self, interaction: discord.Interaction, button: discord.ui.Button):
         _cv = CatalogView(self.user, "facts", owner_id=self.user.id, only_owner=True, edit_mode=True)
         await interaction.response.edit_message(content=None, embeds=[_cv.page_embed()], view=_cv)
 
-    @discord.ui.button(label="👀 Tin đồn", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Tin đồn", style=discord.ButtonStyle.primary, row=0)
     async def rumors(self, interaction: discord.Interaction, button: discord.ui.Button):
         _cv = CatalogView(self.user, "rumors", owner_id=self.user.id, only_owner=True, edit_mode=True)
         await interaction.response.edit_message(content=None, embeds=[_cv.page_embed()], view=_cv)
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1329,7 +1520,7 @@ class NoWorksView(UserOnlyView):
         self.exit_btn.label = get_text(user.id, "btn_exit")
         self.add_item(HomeButton(self.user, row=1))
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=0)
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=0)
     async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             content=None, embeds=[librarian_embed(self.farewell_text)], view=None
@@ -1345,7 +1536,7 @@ class WriteMainView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=2))
 
     @discord.ui.button(
-        label="✒️ Viết nội dung mới", style=discord.ButtonStyle.success, row=0
+        label="Viết nội dung mới", style=discord.ButtonStyle.success, row=0
     )
     async def new_content(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -1382,7 +1573,7 @@ class WriteMainView(UserOnlyView):
             view=MyWorksTypeView(self.user),
         )
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1407,7 +1598,7 @@ class WriteTypeSelectView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=2))
 
     @discord.ui.button(
-        label="📓 Sách (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
+        label="Sách (tối đa 5000 ký tự)", style=discord.ButtonStyle.primary, row=0
     )
     async def books(self, interaction: discord.Interaction, button: discord.ui.Button):
         drafts[self.user.id] = {
@@ -1427,7 +1618,7 @@ class WriteTypeSelectView(UserOnlyView):
         )
 
     @discord.ui.button(
-        label="🍎 Fact (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
+        label="Fact (tối đa 300 ký tự)", style=discord.ButtonStyle.primary, row=0
     )
     async def facts(self, interaction: discord.Interaction, button: discord.ui.Button):
         drafts[self.user.id] = {
@@ -1447,7 +1638,7 @@ class WriteTypeSelectView(UserOnlyView):
         )
 
     @discord.ui.button(
-        label="👀 Tin đồn (tối đa 4000 ký tự)", style=discord.ButtonStyle.primary, row=0
+        label="Tin đồn (tối đa 300 ký tự)", style=discord.ButtonStyle.primary, row=0
     )
     async def rumors(self, interaction: discord.Interaction, button: discord.ui.Button):
         drafts[self.user.id] = {
@@ -1466,7 +1657,7 @@ class WriteTypeSelectView(UserOnlyView):
             view=WriteEditorView(self.user, "rumors"),
         )
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1496,7 +1687,7 @@ class BookWriteCategoryView(UserOnlyView):
             self.add_item(btn)
 
         exit_btn = discord.ui.Button(
-            label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2
+            label="Thoát", style=discord.ButtonStyle.danger, row=2
         )
 
         async def exit_callback(interaction: discord.Interaction):
@@ -1515,12 +1706,11 @@ class SingleTextModal(discord.ui.Modal):
         super().__init__(title=title)
         self.user = user
         self.field_name = field_name
-
         self.input = discord.ui.TextInput(
             label=label,
             default=current_value,
             required=False if field_name == "author" else True,
-            max_length=4000 if field_name == "content" else max_length,  # 🔥 fix cứng 4000
+            max_length=max_length,
             style=discord.TextStyle.long
             if field_name == "content"
             else discord.TextStyle.short,
@@ -1536,24 +1726,17 @@ class SingleTextModal(discord.ui.Modal):
 
         value = self.input.value.strip()
 
-        # 🔥 chống vượt 4000 backend
-        if self.field_name == "content" and len(value) > 4000:
-            await interaction.response.send_message(
-                "Nội dung vượt quá 4000 ký tự.", ephemeral=True
-            )
-            return
-
         _dt = drafts[self.user.id]["data_type"]
         _wf_key = "write_full_rumors" if _dt == "rumors" else "write_full"
 
-        # ===== AUTHOR =====
         if self.field_name == "author":
             if not value:
                 value = "????"
                 drafts[self.user.id]["author"] = value
-
-                # ❗ FIX: chỉ dùng 1 response, không edit message thủ công nữa
-                await interaction.response.edit_message(
+                await interaction.response.send_message(
+                    get_text(self.user.id, "author_empty_fill"), ephemeral=True
+                )
+                await interaction.message.edit(
                     content=get_text(self.user.id, _wf_key),
                     view=WriteEditorView(
                         self.user,
@@ -1561,17 +1744,9 @@ class SingleTextModal(discord.ui.Modal):
                         edit_mode=(drafts[self.user.id].get("mode") == "edit"),
                     ),
                 )
-
-                # gửi thông báo riêng
-                await interaction.followup.send(
-                    get_text(self.user.id, "author_empty_fill"),
-                    ephemeral=True
-                )
                 return
 
             drafts[self.user.id]["author"] = value
-
-        # ===== OTHER FIELDS =====
         else:
             if not value:
                 await interaction.response.send_message(
@@ -1581,7 +1756,6 @@ class SingleTextModal(discord.ui.Modal):
 
             drafts[self.user.id][self.field_name] = value
 
-        # 🔥 FIX QUAN TRỌNG NHẤT: luôn refresh view bằng response
         await interaction.response.edit_message(
             content=get_text(self.user.id, _wf_key),
             view=WriteEditorView(
@@ -1590,6 +1764,7 @@ class SingleTextModal(discord.ui.Modal):
                 edit_mode=(drafts[self.user.id].get("mode") == "edit"),
             ),
         )
+
 
 class WriteEditorView(UserOnlyView):
     def __init__(self, user, data_type, edit_mode=False):
@@ -1635,14 +1810,22 @@ class WriteEditorView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=3))
 
     @discord.ui.button(label="Điền tên", style=discord.ButtonStyle.primary, row=0)
-    async def title_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def title_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         current = drafts.get(self.user.id, {}).get("title", "")
         await interaction.response.send_modal(
-            SingleTextModal(self.user, "title", "Tên tác phẩm", "Nhập tên", 150, current)
+            SingleTextModal(
+                self.user, "title", "Tên tác phẩm", "Nhập tên", 150, current
+            )
         )
 
-    @discord.ui.button(label="Điền tên tác giả", style=discord.ButtonStyle.primary, row=0)
-    async def author_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(
+        label="Điền tên tác giả", style=discord.ButtonStyle.primary, row=0
+    )
+    async def author_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         current = drafts.get(self.user.id, {}).get("author", "")
         await interaction.response.send_modal(
             SingleTextModal(
@@ -1655,36 +1838,44 @@ class WriteEditorView(UserOnlyView):
             )
         )
 
-    @discord.ui.button(label="Chọn thể loại", style=discord.ButtonStyle.primary, row=0)
-    async def category_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(
+        label="Chọn thể loại", style=discord.ButtonStyle.primary, row=0
+    )
+    async def category_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         await interaction.response.edit_message(
             content=None,
             embed=librarian_embed(get_text(self.user.id, "write_category_ask")),
             view=BookWriteCategoryView(self.user),
         )
 
-    @discord.ui.button(label="Điền nội dung", style=discord.ButtonStyle.primary, row=1)
-    async def content_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(
+        label="Điền nội dung", style=discord.ButtonStyle.primary, row=1
+    )
+    async def content_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         current = drafts.get(self.user.id, {}).get("content", "")
+        max_length = 5000 if self.data_type == "books" else 500
         await interaction.response.send_modal(
             SingleTextModal(
-                self.user,
-                "content",
-                "Nội dung",
-                "Nhập nội dung (tối đa 4000 ký tự)",
-                4000,
-                current,
+                self.user, "content", "Nội dung", "Nhập nội dung", max_length, current
             )
         )
 
     @discord.ui.button(label="Ảnh minh họa", style=discord.ButtonStyle.secondary, row=1)
-    async def image_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def image_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         await interaction.response.send_message(
             get_text(self.user.id, "attach_prompt"), ephemeral=True
         )
 
     @discord.ui.button(label="Gửi", style=discord.ButtonStyle.success, row=2)
-    async def submit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def submit_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         draft = drafts.get(self.user.id)
         if not draft:
             await interaction.response.send_message(
@@ -1696,13 +1887,6 @@ class WriteEditorView(UserOnlyView):
         content = draft.get("content", "").strip()
         author = draft.get("author", "").strip() or "????"
         category = draft.get("category")
-
-        # ❗ FIX CHÍNH: chặn 4000 ký tự cho cả 3 loại
-        if len(content) > 4000:
-            await interaction.response.send_message(
-                "Nội dung vượt quá 4000 ký tự.", ephemeral=True
-            )
-            return
 
         if not title or not content:
             await interaction.response.send_message(
@@ -1774,13 +1958,16 @@ class WriteEditorView(UserOnlyView):
                 view=MainMenuView(self.user),
             )
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2)
-    async def exit_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=2)
+    async def exit_btn(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         await interaction.response.edit_message(
             content=get_text(self.user.id, "exit_confirm"),
             view=ExitConfirmView(self.user, self),
             embed=None,
         )
+
 
 class ChatMenuView(UserOnlyView):
     def __init__(self, user):
@@ -1793,14 +1980,14 @@ class ChatMenuView(UserOnlyView):
         self.exit_btn.label   = get_text(user.id, "btn_exit")
         self.add_item(HomeButton(self.user, row=3))
 
-    @discord.ui.button(label="Thư viện này", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(label="Thư viện này", style=discord.ButtonStyle.primary, row=0)
     async def lib_info(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         await interaction.response.edit_message(
             content=None,
             embed=librarian_embed(get_lore_text(self.gdata, "library")),
-            view=ChatBackView(self.user), 
+            view=ChatBackView(self.user),
         )
 
     @discord.ui.button(label="Về bạn", style=discord.ButtonStyle.secondary, row=0)
@@ -1880,7 +2067,7 @@ class ChatMenuView(UserOnlyView):
             view=PostReadView(self.user, item["id"], dt),
         )
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2)
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=2)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1904,7 +2091,7 @@ class ChatBackView(UserOnlyView):
             view=ChatMenuView(self.user),
         )
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1934,7 +2121,7 @@ class SearchMenuView(UserOnlyView):
         )
 
     @discord.ui.button(
-        label="Danh mục nội dung đã vote", style=discord.ButtonStyle.primary, row=0
+        label="Danh mục nội dung đã vote", style=discord.ButtonStyle.secondary, row=0
     )
     async def vote_history(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -1968,7 +2155,7 @@ class SearchMenuView(UserOnlyView):
             content=None, embeds=[_av.page_embed()], view=_av
         )
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=2)
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=2)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -1981,19 +2168,19 @@ class SearchTypeView(UserOnlyView):
         self.mode = mode
         self.add_item(HomeButton(self.user, row=2))
 
-    @discord.ui.button(label="📓 Sách", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Sách", style=discord.ButtonStyle.primary, row=0)
     async def books(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.show(interaction, "books")
 
-    @discord.ui.button(label="🍎 Fact", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Fact", style=discord.ButtonStyle.primary, row=0)
     async def facts(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.show(interaction, "facts")
 
-    @discord.ui.button(label="👀 Tin đồn", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Tin đồn", style=discord.ButtonStyle.primary, row=0)
     async def rumors(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.show(interaction, "rumors")
 
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="Thoát", style=discord.ButtonStyle.danger, row=1)
     async def exit_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
@@ -2116,7 +2303,7 @@ class AuthorCatalogView(UserOnlyView):
             title=f"🖊️ Danh mục tác giả • Trang {self.page + 1}/{self.total_pages}",
             color=0x4b0082,
         )
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         if not self.current_authors:
             embed.description = "*(Chưa có tác giả nào trong thư viện.)*"
         else:
@@ -2244,7 +2431,7 @@ class AuthorWorksView(UserOnlyView):
             title=f"✍️ {self.author_name} — {total} tác phẩm • Trang {self.page + 1}/{self.total_pages}",
             color=0x4b0082,
         )
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         if not self.current_works:
             embed.description = "*(Tác giả chưa có tác phẩm nào.)*"
         else:
@@ -2359,7 +2546,7 @@ class DeleteAllConfirmView(UserOnlyView):
             gd["rumors"] = []
             save_json(DATA_FILE, library_data)
             embed = discord.Embed(title="☢️ Đã xoá toàn bộ", description="Kho dữ liệu thư viện đã được dọn sạch.", color=0x4b0082)
-            embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+            embed.set_author(name="📜 Thư Viện Cổ 📜")
             await interaction.response.edit_message(embeds=[embed], view=AdminReturnView(self.user))
 
         async def cancel_cb(interaction: discord.Interaction):
@@ -2374,7 +2561,7 @@ class DeleteAllConfirmView(UserOnlyView):
     def confirm_embed(self):
         total = sum(len(self.gdata[dt]) for dt in ["books", "facts", "rumors"])
         embed = discord.Embed(title="⚠️ Xác nhận xoá toàn bộ kho dữ liệu", color=0xFF0000)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         embed.add_field(name="📊 Tổng số tác phẩm sẽ bị xoá", value=str(total), inline=False)
         embed.set_footer(text="Hành động này không thể hoàn tác. Bạn chắc chắn chứ?")
         return embed
@@ -2397,7 +2584,7 @@ class DeleteConfirmItemView(UserOnlyView):
                 description=f'Tác phẩm **"{self.item["title"]}"** đã được xoá khỏi kho dữ liệu.',
                 color=0x4b0082,
             )
-            embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+            embed.set_author(name="📜 Thư Viện Cổ 📜")
             await interaction.response.edit_message(embeds=[embed], view=AdminReturnView(self.user))
 
         async def cancel_cb(interaction: discord.Interaction):
@@ -2410,9 +2597,9 @@ class DeleteConfirmItemView(UserOnlyView):
         self.add_item(cancel_btn)
 
     def confirm_embed(self):
-        type_labels = {"books": "📓 Sách", "facts": "🍎 Fact", "rumors": "👀 Tin đồn"}
+        type_labels = {"books": "Sách", "facts": "Fact", "rumors": "Tin đồn"}
         embed = discord.Embed(title="⚠️ Xác nhận xoá tác phẩm", color=0xFF6B00)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         embed.add_field(name="📖 Tác phẩm", value=self.item["title"], inline=False)
         embed.add_field(name="✍️ Tác giả",  value=self.item.get("author", "?"), inline=True)
         embed.add_field(name="📁 Thể loại", value=type_labels.get(self.dt, self.dt), inline=True)
@@ -2425,7 +2612,7 @@ class DeleteSelectItemView(UserOnlyView):
         super().__init__(user, timeout=180)
         self.dt = dt
         items = sorted(self.gdata[dt], key=lambda x: x.get("date", ""), reverse=True)[:25]
-        type_labels = {"books": "📓 Sách", "facts": "🍎 Fact", "rumors": "👀 Tin đồn"}
+        type_labels = {"books": "Sách", "facts": "Fact", "rumors": "Tin đồn"}
         if items:
             options = [
                 discord.SelectOption(
@@ -2457,10 +2644,10 @@ class DeleteSelectItemView(UserOnlyView):
         self.add_item(HomeButton(self.user, row=1))
 
     def panel_embed(self):
-        type_labels = {"books": "📓 Sách", "facts": "🍎 Fact", "rumors": "👀 Tin đồn"}
+        type_labels = {"books": "Sách", "facts": "Fact", "rumors": "Tin đồn"}
         total = len(self.gdata[self.dt])
         embed = discord.Embed(title=f"🗑️ Xoá {type_labels[self.dt]}", color=0x4b0082)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         if not total:
             embed.description = f"*(Không có {type_labels[self.dt]} nào trong thư viện.)*"
         elif total > 25:
@@ -2473,7 +2660,7 @@ class DeleteSelectItemView(UserOnlyView):
 class DeleteSelectTypeView(UserOnlyView):
     def __init__(self, user):
         super().__init__(user, timeout=180)
-        for label, emoji, dt in [("Sách", "📓", "books"), ("Fact", "🍎", "facts"), ("Tin đồn", "👀", "rumors")]:
+        for label, emoji, dt in [("Sách", "📘", "books"), ("Fact", "📗", "facts"), ("Tin đồn", "📕", "rumors")]:
             btn = discord.ui.Button(label=label, emoji=emoji, style=discord.ButtonStyle.secondary, row=0)
             def make_type_cb(data_type):
                 async def cb(interaction: discord.Interaction):
@@ -2492,7 +2679,7 @@ class DeleteSelectTypeView(UserOnlyView):
 
     def panel_embed(self):
         embed = discord.Embed(title="🗑️ Xoá tác phẩm — Chọn thể loại", color=0x4b0082)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         embed.description = "Chọn thể loại tác phẩm muốn xoá:"
         return embed
 
@@ -2521,7 +2708,7 @@ class DeleteByAuthorConfirmView(UserOnlyView):
                 description=f'Đã xoá **{len(removed_items)} tác phẩm** của bút danh **"{self.author_name}"**.',
                 color=0x4b0082,
             )
-            embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+            embed.set_author(name="📜 Thư Viện Cổ 📜")
             await interaction.response.edit_message(embeds=[embed], view=AdminReturnView(self.user))
 
         async def cancel_cb(interaction: discord.Interaction):
@@ -2535,7 +2722,7 @@ class DeleteByAuthorConfirmView(UserOnlyView):
 
     def confirm_embed(self):
         embed = discord.Embed(title="⚠️ Xác nhận xoá theo bút danh", color=0xFF6B00)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         embed.add_field(name="✍️ Bút danh", value=self.author_name, inline=False)
         embed.add_field(name="📊 Số tác phẩm sẽ bị xoá", value=str(self.count), inline=False)
         embed.set_footer(text="Bạn sắp xoá toàn bộ tác phẩm của bút danh này. Bạn chắc chắn chứ?")
@@ -2579,7 +2766,7 @@ class DeleteByAuthorView(UserOnlyView):
 
     def panel_embed(self):
         embed = discord.Embed(title="🖊️ Xoá theo bút danh", color=0x4b0082)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         embed.description = "Chọn bút danh từ dropdown. **Toàn bộ tác phẩm** dưới bút danh đó sẽ bị xoá."
         return embed
 
@@ -2614,7 +2801,7 @@ class DeleteByUserConfirmView(UserOnlyView):
                 description=f'Đã xoá **{len(removed_items)} tác phẩm** của <@{target_id}> khỏi kho dữ liệu.',
                 color=0x4b0082,
             )
-            embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+            embed.set_author(name="📜 Thư Viện Cổ 📜")
             await interaction.response.edit_message(embeds=[embed], view=AdminReturnView(self.user))
 
         async def cancel_cb(interaction: discord.Interaction):
@@ -2628,7 +2815,7 @@ class DeleteByUserConfirmView(UserOnlyView):
 
     def confirm_embed(self):
         embed = discord.Embed(title="⚠️ Xác nhận xoá theo người dùng", color=0xFF6B00)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         embed.add_field(name="👤 Người dùng", value=f"<@{self.target_user.id}>", inline=False)
         embed.add_field(name="📊 Số tác phẩm sẽ bị xoá", value=str(self.count), inline=False)
         embed.set_footer(text="Bạn sắp xoá toàn bộ tác phẩm của người dùng này. Bạn chắc chắn chứ?")
@@ -2658,7 +2845,7 @@ class DeleteByUserView(UserOnlyView):
 
     def panel_embed(self):
         embed = discord.Embed(title="👤 Xoá theo người dùng", color=0x4b0082)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         embed.description = "Chọn người dùng Discord từ dropdown. **Toàn bộ tác phẩm** do người đó đăng sẽ bị xoá."
         return embed
 
@@ -2698,10 +2885,10 @@ class DeleteMenuView(UserOnlyView):
         facts  = len(self.gdata["facts"])
         rumors = len(self.gdata["rumors"])
         embed = discord.Embed(title="🗑️ Quản lý xoá nội dung", color=0x4b0082)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         embed.add_field(
             name="📊 Kho dữ liệu hiện tại",
-            value=f"📓 Sách: {books}\n🍎 Fact: {facts}\n👀 Tin đồn: {rumors}",
+            value=f"📘 Sách: {books}\n📗 Fact: {facts}\n📕 Tin đồn: {rumors}",
             inline=False,
         )
         embed.add_field(
@@ -2857,7 +3044,7 @@ class LoreListView(UserOnlyView):
         entries = self.gdata["lore"][cat]
         titles  = {"library": "📜 Lore thư viện", "librarian": "👻 Lore thủ thư"}
         embed   = discord.Embed(title=titles.get(cat, cat), color=0x4b0082)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         if not entries:
             embed.description = get_text(uid, "lore_empty")
         else:
@@ -2979,7 +3166,7 @@ class GreetingListView(UserOnlyView):
         active = bucket.get("active")
         titles = {"welcome": "👋 Lời chào mở đầu", "farewell": "🌕 Lời tạm biệt"}
         embed  = discord.Embed(title=titles.get(cat, cat), color=0x4b0082)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         if not msgs:
             embed.description = get_text(uid, "lore_empty")
         else:
@@ -3027,94 +3214,15 @@ class LoreMenuView(UserOnlyView):
     def menu_embed(self):
         uid = self.user.id
         embed = discord.Embed(title=get_text(uid, "lore_menu_title"), color=0x4b0082)
-        embed.set_author(name="✨📜 Thư Viện Cổ 📜✨")
+        embed.set_author(name="📜 Thư Viện Cổ 📜")
         embed.description = (
             "📜 **Lore thư viện** — Câu trả lời khi user hỏi về thư viện (random 1 câu)\n"
             "👻 **Lore thủ thư** — Câu trả lời khi user hỏi về nhân vật (random 1 câu)\n"
             "👋 **Lời chào mở đầu** — Hiển thị khi chạy `/ghostlibrary` (admin chọn 1 câu)\n"
-            "🌕 **Lời tạm biệt** — Hiển thị khi user bấm 🚪 Thoát (admin chọn 1 câu)"
+            "🌕 **Lời tạm biệt** — Hiển thị khi user bấm Thoát (admin chọn 1 câu)"
         )
         return embed
 
-
-class MainMenuView(UserOnlyView):
-    def __init__(self, user):
-        super().__init__(user, timeout=600)
-        self.read_btn.label   = get_text(user.id, "btn_read")
-        self.write_btn.label  = get_text(user.id, "btn_write")
-        self.chat_btn.label   = get_text(user.id, "btn_chat")
-        self.search_btn.label = get_text(user.id, "btn_search")
-        self.exit_btn.label   = get_text(user.id, "btn_exit")
-        self.lang_btn.label   = get_text(user.id, "btn_lang")
-        if isinstance(user, discord.Member) and is_admin_member(user):
-            admin_btn = discord.ui.Button(
-                label="⚙️ Admin", style=discord.ButtonStyle.secondary, row=1
-            )
-            async def admin_callback(interaction: discord.Interaction):
-                _ap = AdminPanelView(self.user)
-                await interaction.response.edit_message(
-                    content=None, embeds=[_ap.panel_embed()], view=_ap
-                )
-            admin_btn.callback = admin_callback
-            self.add_item(admin_btn)
-
-    @discord.ui.button(label="📖 Đọc", style=discord.ButtonStyle.primary, row=0)
-    async def read_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(
-            content=None,
-            embed=librarian_embed(get_text(self.user.id, "read_ask")),
-            view=ReadMenuView(self.user),
-        )
-
-    @discord.ui.button(label="✒️ Viết", style=discord.ButtonStyle.primary, row=0)
-    async def write_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(
-            content=None,
-            embed=librarian_embed(get_text(self.user.id, "write_ask")),
-            view=WriteMainView(self.user),
-        )
-
-    @discord.ui.button(label="🗨️ Trò chuyện ", style=discord.ButtonStyle.primary, row=0)
-    async def chat_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(
-            content=None,
-            embed=librarian_embed(get_text(self.user.id, "chat_ask")),
-            view=ChatMenuView(self.user),
-        )
-
-    @discord.ui.button(label="🔍 Tra cứu", style=discord.ButtonStyle.success, row=0)
-    async def search_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(
-            content=None,
-            embed=librarian_embed(get_text(self.user.id, "search_ask")),
-            view=SearchMenuView(self.user),
-        )
-
-    @discord.ui.button(label="🚪 Thoát", style=discord.ButtonStyle.danger, row=1)
-    async def exit_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(content=None, embeds=[librarian_embed(self.farewell_text)], view=None)
-
-    @discord.ui.button(
-        label="🗣️ Chuyển ngôn ngữ", style=discord.ButtonStyle.secondary, row=1
-    )
-    async def lang_btn(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.edit_message(
-            content=get_text(self.user.id, "choose_language"),
-            view=LanguageView(self.user),
-            embed=None,
-        )
 
 @bot.tree.command(name="ghostlibrary", description="Mở giao diện thư viện ma")
 async def ghostlibrary(interaction: discord.Interaction):
@@ -3164,7 +3272,376 @@ async def pickrole_forbiddenbooks(interaction: discord.Interaction, role: discor
         f"✅ {get_text(interaction.user.id, 'picked_role')} `{role.name}`",
         ephemeral=True,
     )
-    
+
+
+def _safe_filename(name: str, fallback: str = "guild") -> str:
+    """Sanitize a string for use as a filename component."""
+    import re
+    cleaned = re.sub(r"[^\w\-\.]+", "_", name, flags=re.UNICODE).strip("_.")
+    return cleaned[:60] if cleaned else fallback
+
+
+def _build_export_payload(scope: str, guild_id, guild_name: str):
+    """Return a list of (filename, bytes) tuples for the export."""
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out = []
+    if scope == "all":
+        out.append((
+            f"library_FULL_{ts}.json",
+            json.dumps(library_data, ensure_ascii=False, indent=4).encode("utf-8"),
+        ))
+        out.append((
+            f"user_prefs_{ts}.json",
+            json.dumps(user_prefs, ensure_ascii=False, indent=4).encode("utf-8"),
+        ))
+    else:
+        gid = str(guild_id)
+        guild_only = {gid: library_data.get(gid, {})}
+        safe = _safe_filename(guild_name)
+        out.append((
+            f"library_{safe}_{ts}.json",
+            json.dumps(guild_only, ensure_ascii=False, indent=4).encode("utf-8"),
+        ))
+    return out, ts
+
+
+def _make_discord_files(payload):
+    """Create fresh discord.File objects from payload tuples (can be called repeatedly)."""
+    import io
+    return [discord.File(io.BytesIO(b), filename=name) for name, b in payload]
+
+
+@bot.tree.command(
+    name="export_data",
+    description="Admin: xuất data ra file JSON (gửi vào DM)",
+)
+@app_commands.describe(
+    scope="Phạm vi xuất: chỉ server này hoặc toàn bộ (toàn bộ — chỉ owner bot)"
+)
+@app_commands.choices(scope=[
+    app_commands.Choice(name="Chỉ server này", value="guild"),
+    app_commands.Choice(name="Toàn bộ (owner bot only)", value="all"),
+])
+async def export_data(
+    interaction: discord.Interaction,
+    scope: app_commands.Choice[str] = None,
+):
+    scope_value = scope.value if scope else "guild"
+
+    if (
+        not interaction.guild
+        or not isinstance(interaction.user, discord.Member)
+        or not is_admin_member(interaction.user)
+    ):
+        await interaction.response.send_message(
+            get_text(interaction.user.id, "admin_only"), ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    try:
+        if scope_value == "all":
+            app_info = await bot.application_info()
+            if interaction.user.id != app_info.owner.id:
+                await interaction.followup.send(
+                    "❌ Chỉ owner của bot mới được xuất toàn bộ data.",
+                    ephemeral=True,
+                )
+                return
+
+        payload, ts = _build_export_payload(
+            scope_value, interaction.guild.id, interaction.guild.name
+        )
+
+        # Cảnh báo nếu file tổng quá to (Discord giới hạn 25MB / file thường, 10MB cho DM Nitro-less)
+        for fname, fbytes in payload:
+            if len(fbytes) > 24 * 1024 * 1024:
+                await interaction.followup.send(
+                    f"❌ File `{fname}` quá lớn ({len(fbytes)//1024//1024}MB). "
+                    "Hãy dùng `scope:guild` cho từng server, hoặc export trực tiếp từ Postgres.",
+                    ephemeral=True,
+                )
+                return
+
+        # Thử gửi DM trước (an toàn hơn). Nếu fail vì bất kỳ lý do gì → fallback gửi ephemeral.
+        sent_via_dm = False
+        try:
+            dm = await interaction.user.create_dm()
+            await dm.send(
+                content=(
+                    f"📦 **Backup data thư viện ma** — {ts}\n"
+                    f"Server: `{interaction.guild.name}`\n"
+                    f"Phạm vi: `{scope_value}`"
+                ),
+                files=_make_discord_files(payload),
+            )
+            sent_via_dm = True
+        except (discord.Forbidden, discord.HTTPException):
+            sent_via_dm = False
+
+        if sent_via_dm:
+            await interaction.followup.send(
+                "✅ Đã gửi file backup vào DM của bạn.", ephemeral=True
+            )
+        else:
+            await interaction.followup.send(
+                content=(
+                    "⚠️ Không gửi được DM (bạn đã tắt DM, hoặc lỗi mạng). "
+                    "Gửi file ngay tại đây (chỉ bạn nhìn thấy):"
+                ),
+                files=_make_discord_files(payload),
+                ephemeral=True,
+            )
+    except Exception as e:
+        await interaction.followup.send(
+            f"❌ Lỗi khi xuất data: `{e}`", ephemeral=True
+        )
+
+
+def _looks_like_user_prefs(payload: dict) -> bool:
+    """Detect a user_prefs.json file: dict[user_id_str -> lang_code_str]."""
+    if not payload:
+        return False
+    return all(
+        isinstance(k, str) and k.isdigit() and isinstance(v, str) and len(v) <= 8
+        for k, v in payload.items()
+    )
+
+
+def _validate_guild_payload(guild_payload):
+    """Return None if valid, otherwise a human-readable error message (str)."""
+    if not isinstance(guild_payload, dict):
+        return "data của guild phải là object."
+    for list_key in ("books", "facts", "rumors"):
+        if list_key in guild_payload and not isinstance(guild_payload[list_key], list):
+            return f"trường `{list_key}` phải là list."
+    return None
+
+
+@bot.tree.command(
+    name="import_data",
+    description="Admin: nhập (restore) data từ file JSON backup",
+)
+@app_commands.describe(
+    file="File JSON backup (lấy từ /export_data trước đó)",
+    mode="merge = ghép thêm; replace = thay thế hoàn toàn data của server này",
+)
+@app_commands.choices(mode=[
+    app_commands.Choice(name="Merge — ghép thêm (an toàn)", value="merge"),
+    app_commands.Choice(name="Replace — thay thế hoàn toàn (NGUY HIỂM)", value="replace"),
+])
+async def import_data(
+    interaction: discord.Interaction,
+    file: discord.Attachment,
+    mode: app_commands.Choice[str] = None,
+):
+    mode_value = mode.value if mode else "merge"
+
+    if (
+        not interaction.guild
+        or not isinstance(interaction.user, discord.Member)
+        or not is_admin_member(interaction.user)
+    ):
+        await interaction.response.send_message(
+            get_text(interaction.user.id, "admin_only"), ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    if not file.filename.lower().endswith(".json"):
+        await interaction.followup.send(
+            "❌ File phải có đuôi `.json`.", ephemeral=True
+        )
+        return
+
+    if file.size > 25 * 1024 * 1024:
+        await interaction.followup.send(
+            "❌ File quá lớn (tối đa 25MB).", ephemeral=True
+        )
+        return
+
+    try:
+        raw = await file.read()
+        payload = json.loads(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        await interaction.followup.send(
+            "❌ File không phải UTF-8.", ephemeral=True
+        )
+        return
+    except json.JSONDecodeError as e:
+        await interaction.followup.send(
+            f"❌ JSON sai cú pháp: `{e}`", ephemeral=True
+        )
+        return
+    except Exception as e:
+        await interaction.followup.send(
+            f"❌ Không đọc được file: `{e}`", ephemeral=True
+        )
+        return
+
+    if not isinstance(payload, dict):
+        await interaction.followup.send(
+            "❌ File JSON phải là object (không phải list / số / chuỗi).",
+            ephemeral=True,
+        )
+        return
+
+    gid = str(interaction.guild.id)
+    try:
+        app_info = await bot.application_info()
+        is_owner = interaction.user.id == app_info.owner.id
+    except Exception:
+        is_owner = False
+
+    try:
+        # Trường hợp 1: file là user_prefs.json
+        if _looks_like_user_prefs(payload):
+            if not is_owner:
+                await interaction.followup.send(
+                    "❌ Chỉ owner của bot mới được restore file `user_prefs.json`.",
+                    ephemeral=True,
+                )
+                return
+            global user_prefs
+            count_before = len(user_prefs)
+            if mode_value == "replace":
+                user_prefs = payload
+            else:
+                user_prefs.update(payload)
+            save_json(USER_PREFS_FILE, user_prefs)
+            await interaction.followup.send(
+                f"✅ Đã restore `user_prefs.json`.\n"
+                f"• Mode: `{mode_value}`\n"
+                f"• Trước: {count_before} user → Sau: {len(user_prefs)} user",
+                ephemeral=True,
+            )
+            return
+
+        # Trường hợp 2: file library
+        guild_keys = [k for k in payload.keys() if isinstance(k, str) and k.isdigit()]
+        if not guild_keys:
+            await interaction.followup.send(
+                "❌ File không phải định dạng library hợp lệ "
+                "(không tìm thấy guild ID nào ở key cấp 1).\n"
+                "Lưu ý: file phải có cấu trúc `{\"<guild_id>\": {...}}`.",
+                ephemeral=True,
+            )
+            return
+
+        # Validate cấu trúc của từng guild trong payload
+        for k in guild_keys:
+            err = _validate_guild_payload(payload[k])
+            if err:
+                await interaction.followup.send(
+                    f"❌ Guild `{k}` có data sai cấu trúc: {err}",
+                    ephemeral=True,
+                )
+                return
+
+        # Phân quyền: file nhiều guild → chỉ owner
+        if len(guild_keys) > 1 and not is_owner:
+            await interaction.followup.send(
+                "❌ File chứa data của nhiều server. "
+                "Chỉ owner của bot mới được import file dạng này.",
+                ephemeral=True,
+            )
+            return
+
+        # Admin không phải owner: ép data về guild hiện tại
+        if len(guild_keys) == 1 and not is_owner:
+            src_key = guild_keys[0]
+            if src_key != gid:
+                payload = {gid: payload[src_key]}
+                guild_keys = [gid]
+
+        # Snapshot data cũ phòng khi cần rollback (chỉ trong RAM)
+        snapshot = {k: deepcopy(library_data.get(k)) for k in guild_keys}
+        rollback_payload = json.dumps(
+            snapshot, ensure_ascii=False, indent=4
+        ).encode("utf-8")
+
+        added_counts = {"books": 0, "facts": 0, "rumors": 0}
+
+        for k in guild_keys:
+            incoming = payload[k]
+            if mode_value == "replace" or k not in library_data:
+                library_data[k] = deepcopy(incoming)
+            else:
+                # merge: ghép từng list, dedupe theo id
+                existing = library_data[k]
+                for list_key in ("books", "facts", "rumors"):
+                    incoming_list = incoming.get(list_key, []) or []
+                    existing_list = existing.setdefault(list_key, [])
+                    existing_ids = {
+                        item.get("id") for item in existing_list
+                        if isinstance(item, dict)
+                    }
+                    for item in incoming_list:
+                        if not isinstance(item, dict):
+                            continue
+                        if item.get("id") not in existing_ids or item.get("id") is None:
+                            existing_list.append(deepcopy(item))
+                            added_counts[list_key] += 1
+                # cập nhật next_id
+                existing["next_id"] = max(
+                    existing.get("next_id", 1),
+                    incoming.get("next_id", 1) if isinstance(incoming.get("next_id"), int) else 1,
+                )
+                # config / lore: chỉ điền nếu trống
+                if "config" in incoming and isinstance(incoming["config"], dict):
+                    existing.setdefault("config", {}).setdefault(
+                        "forbidden_role",
+                        incoming["config"].get("forbidden_role"),
+                    )
+                if "lore" in incoming and isinstance(incoming["lore"], dict):
+                    existing.setdefault("lore", deepcopy(incoming["lore"]))
+
+        ensure_data()
+        save_json(DATA_FILE, library_data)
+
+        # Gửi snapshot rollback vào DM cho admin (an toàn)
+        rollback_file = discord.File(
+            __import__("io").BytesIO(rollback_payload),
+            filename=f"rollback_BEFORE_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+        )
+        try:
+            dm = await interaction.user.create_dm()
+            await dm.send(
+                content=(
+                    "🛟 Đây là snapshot data **trước khi import**. "
+                    "Nếu cần rollback, dùng `/import_data mode:replace` với file này."
+                ),
+                files=[rollback_file],
+            )
+            rollback_msg = "📨 Snapshot rollback đã gửi vào DM."
+        except (discord.Forbidden, discord.HTTPException):
+            rollback_msg = "⚠️ Không gửi được snapshot rollback vào DM (DM bị tắt)."
+
+        if mode_value == "merge":
+            stats = (
+                f"• Sách thêm: {added_counts['books']}\n"
+                f"• Fact thêm: {added_counts['facts']}\n"
+                f"• Tin đồn thêm: {added_counts['rumors']}\n"
+            )
+        else:
+            stats = "• Đã thay thế hoàn toàn data của các guild trên.\n"
+
+        await interaction.followup.send(
+            f"✅ Đã restore data thành công.\n"
+            f"• Mode: `{mode_value}`\n"
+            f"• Guild được cập nhật: `{', '.join(guild_keys)}`\n"
+            f"{stats}"
+            f"{rollback_msg}",
+            ephemeral=True,
+        )
+    except Exception as e:
+        await interaction.followup.send(
+            f"❌ Lỗi khi import: `{e}`", ephemeral=True
+        )
+
+
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -3211,21 +3688,24 @@ async def on_message(message):
 
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
     try:
         synced = await bot.tree.sync()
-        print(f"🔁 Synced {len(synced)} slash commands")
+        print(f"Slash commands synced: {len(synced)}")
     except Exception as e:
-        print(f"❌ Sync error: {e}")
+        print(f"Sync error: {e}")
 
-@bot.command()
-async def ping(ctx):
-    await ctx.send("pong 🏓")
+    await bot.change_presence(
+        status=discord.Status.online,
+        activity=discord.Activity(
+            type=discord.ActivityType.watching,
+            name="Thư Viện Cổ 📚"
+        )
+    )
+    print(f"Logged in as {bot.user}")
 
-import os
-TOKEN = os.getenv("TOKEN")
 
-if not TOKEN:
-    raise ValueError("❌ TOKEN not found")
-
-bot.run(TOKEN)
+token = os.getenv("TOKEN")
+if token:
+    bot.run(token)
+else:
+    print("Vui lòng thêm TOKEN vào Secrets!")
